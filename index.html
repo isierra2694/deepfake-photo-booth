@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Deepfake Photo Booth Test</title>
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+  </head>
+  <body>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html, body {
+        margin: 0;
+        height: 100vh;
+        overflow: hidden;
+        background: #050505;
+      }
+      body {
+        position: relative;
+      }
+      h1, h2, h3, h4, h5, h6, p {
+        font-family: 'Socure Rules', sans-serif;
+        font-weight: 400;
+        margin: 0;
+      }
+      h1 {
+        font-size: 64px;
+        line-height: 95%;
+      }
+      h3 {
+        font-size: 24px;
+        line-height: 145%;
+      }
+      .mono {
+        font-family: 'Aeonik Mono', monospace;
+        text-transform: uppercase;
+        font-weight: 500;
+        letter-spacing: 1.92px;
+      }
+      .button {
+        background-color: #FC5B1C;
+        padding: 36px;
+        font-family: 'Socure Rules', sans-serif;
+        color: #050505;
+        border: none;
+        cursor: pointer;
+        font-size: 48px;
+        line-height: 100%;
+      }
+      .button.button-secondary {
+        background-color: #FFFFFF;
+        color: #050505;
+      }
+      .button.button-tertiary {
+        background-color: #7D6B64;
+        color: #FFFFFF;
+      }
+      .patterned-background {
+        background-color: rgb(5 5 5 / 40%);
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 49.7803 99.5606'%3E%3Cg fill='%23C2B3AB'%3E%3Cpath id='d' d='M0 14.1421 14.1421 0 28.2842 14.1421 14.1421 28.2842Z'/%3E%3Cuse href='%23d' transform='translate(-24.8902 49.7803)'/%3E%3Cuse href='%23d' transform='translate(24.8902 49.7803)'/%3E%3C/g%3E%3C/svg%3E");
+        background-size: 5.97364px 11.9473px;
+        background-repeat: repeat;
+      }
+      article {
+        height: 100%;
+      }
+      #attract-screen {
+        position: absolute;
+        inset: 0;
+        z-index: 3;
+        transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      #attract-screen video {
+        display: block;
+        max-width: 100%;
+        max-height: 100%;
+        width: auto;
+        margin: 0 auto;
+      }
+      #final-screen {
+        display: none;
+      }
+      #profiles-screen {
+        display: none;
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 2;
+        width: min(100vw, 56.25vh);
+        height: auto;
+        aspect-ratio: 9 / 16;
+        overflow: hidden;
+      }
+      #profiles-screen video {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        z-index: 0;
+      }
+      #profiles-screen .profiles-screen__content {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 100%;
+      }
+      #profiles-screen .profiles-screen__top {
+        margin: 0 20px;
+        padding: 60px 40px 40px 40px;
+      }
+      #profiles-screen .profiles-screen__top img {
+        max-width: 400px;
+      }
+      #profiles-screen .profiles-screen__bottom {
+        margin: 20px;
+        padding: 40px;
+        color: #FFFFFF;
+        position: relative;
+      }
+      #profiles-screen .profiles-screen__bottom h1 {
+        margin-top: 16px;
+      }
+      #profiles-screen .profiles-screen__buttons {
+        display: flex;
+        margin-top: 20px;
+        gap: 8px;
+      }
+      #profiles-screen .profiles-screen__buttons button {
+        width: 100%;
+      }
+      #profiles-screen .profiles-screen__profiles {
+        margin-top: 20px;
+      }
+      #profiles-screen .profiles-screen__profiles .swiper {
+        width: 100%;
+      }
+      #profiles-screen .profiles-screen__profiles .swiper-wrapper {
+        transition-timing-function: linear;
+      }
+      #profiles-screen .profiles-screen__profiles .swiper-slide {
+        width: 400px;
+      }
+      #profiles-screen .profiles-screen__profiles .swiper-slide img {
+        display: block;
+        width: 400px;
+        height: 400px;
+        object-fit: cover;
+        object-position: top;
+        border: 4px solid transparent;
+        cursor: pointer;
+      }
+      #profiles-screen .profiles-screen__profiles .swiper-slide.selected img {
+        border-color: #FC5B1C;
+      }
+      #profiles-screen .profiles-screen__decoration {
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        background: #C2B3AB;
+      }
+      #profiles-screen .profiles-screen__decoration.top-right {
+        top: 16px;
+        right: 16px;
+      }
+      #profiles-screen .profiles-screen__decoration.bottom-left {
+        bottom: 16px;
+        left: 16px;
+      }
+      #profiles-screen .profiles-screen__decoration.top-left {
+        top: 16px;
+        left: 16px;
+      }
+      #profiles-screen .profiles-screen__decoration.bottom-right {
+        bottom: 16px;
+        right: 16px;
+      }
+      #video-screen {
+        display: none;
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1;
+        width: min(100vw, 56.25vh);
+        height: auto;
+        aspect-ratio: 9 / 16;
+        overflow: hidden;
+        background-color: #FC5B1C;
+      }
+      #video-screen .video-screen__content {
+        padding: 60px;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+      #video-screen .video-screen__camera {
+        height: 1200px;
+        width: 100%;
+        position: relative;
+        z-index: 2;
+      }
+      #video-screen .video-screen__camera #webcam {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        z-index: 2;
+      }
+      #video-screen .video-screen__status {
+        display: flex;
+        align-items: flex-start;
+        gap: 20px;
+        margin-top: 48px;
+      }
+      #video-screen .video-screen__status video {
+        width: 72px;
+        height: 72px;
+        object-fit: cover;
+      }
+      #video-screen .video-screen__status__text {
+        display: flex;
+        flex-direction: column-reverse;
+        gap: 36px;
+        margin-top: 8px;
+      }
+      #video-screen .video-screen__status__text h1 {
+        margin: 0;
+      }
+      #video-screen .video-screen__status__text h1.inactive {
+        color: #FD915B;
+      }
+      #video-screen .video-screen__logo {
+        margin-top: auto;
+        max-width: 576px;
+      }
+      #end-screen {
+        display: none;
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1;
+        width: min(100vw, 56.25vh);
+        height: auto;
+        aspect-ratio: 9 / 16;
+        overflow: hidden;
+        background-color: #050505;
+      }
+      #end-screen .end-screen__content {
+        padding: 60px;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        color: #FFFFFF;
+        z-index: 1;
+        position: relative;
+      }
+      #end-screen .end-screen__content h1 {
+        font-size: 153px;
+        line-height: 100%;
+        font-weight: 400;
+        letter-spacing: -4.6px;
+        max-width: 800px;
+      }
+      #end-screen .end-screen__content h2 {
+        font-size: 86px;
+        line-height: 110%;
+        font-weight: 400;
+        letter-spacing: -2.6px;
+        margin-top: 113px;
+        max-width: 763px;
+      }
+      #end-screen .end-screen__logo {
+        margin-top: auto;
+        max-width: 576px;
+      }
+      #end-screen .end-screen__background {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        z-index: 0;
+      }
+      #download-screen {
+        display: none;
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 6;
+        width: min(100vw, 56.25vh);
+        height: auto;
+        aspect-ratio: 9 / 16;
+        overflow: hidden;
+        background-color: #260D00;
+      }
+      #download-screen .download-screen__content {
+        padding: 60px;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        color: #FFFFFF;
+        z-index: 1;
+        position: relative;
+        gap: 40px;
+      }
+      #download-screen .download-screen__content h1 {
+        font-size: 56px;
+        line-height: 110%;
+        font-weight: 400;
+        letter-spacing: -1.68px;
+      }
+      #download-screen .download-screen__content h3 {
+        font-size: 24px;
+        line-height: 145%;
+        font-weight: 400;
+        letter-spacing: 1.92px;
+      }
+      #download-screen .download-screen__logo {
+        max-width: 576px;
+      }
+      #download-screen .download-screen__card {
+        padding: 40px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      #video-download {
+        max-width: 405px;
+        width: 100%;
+        margin: 0 auto;
+      }
+      #download-screen .download-screen__card__text {
+        padding: 40px;
+        background-color: #260D00;
+      }
+      #download-screen .download-screen__buttons {
+        display: flex;
+        gap: 8px;
+      }
+      #download-screen .download-screen__buttons button {
+        width: 100%;
+      }
+      #stage-canvas {
+        display: none;
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 4;
+        width: min(100vw, 56.25vh);
+        height: auto;
+        aspect-ratio: 9 / 16;
+      }
+    </style>
+    <article id="attract-screen">
+      <video src="/public/attract-video.mp4" autoplay loop muted></video>
+    </article>
+    <article id="profiles-screen">
+      <video id="webcam" autoplay playsinline></video>
+      <div class="profiles-screen__content">
+        <div class="profiles-screen__top patterned-background">
+          <img src="/public/logo.svg" alt="Socure logo" />
+        </div>
+        <div class="profiles-screen__bottom patterned-background">
+          <h3 class="mono">Deepfake profiles</h3>
+          <h1>Who do you want to be?</h1>
+          <div class="profiles-screen__profiles">
+            <div class="swiper">
+              <div class="swiper-wrapper">
+                <div class="swiper-slide" data-face="gigachad">
+                  <img src="/public/gigachad.png" alt="Gigachad" />
+                </div>
+                <div class="swiper-slide" data-face="baby">
+                  <img src="/public/baby.png" alt="Baby" />
+                </div>
+                <div class="swiper-slide" data-face="woman">
+                  <img src="/public/woman.png" alt="Woman" />
+                </div>
+                <div class="swiper-slide" data-face="viking">
+                  <img src="/public/viking.png" alt="Viking" />
+                </div>
+                <div class="swiper-slide" data-face="gigachad">
+                  <img src="/public/gigachad.png" alt="Gigachad" />
+                </div>
+                <div class="swiper-slide" data-face="baby">
+                  <img src="/public/baby.png" alt="Baby" />
+                </div>
+                <div class="swiper-slide" data-face="woman">
+                  <img src="/public/woman.png" alt="Woman" />
+                </div>
+                <div class="swiper-slide" data-face="viking">
+                  <img src="/public/viking.png" alt="Viking" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="profiles-screen__buttons">
+            <button class="button button-secondary">Back</button>
+            <button class="button">Wear this face</button>
+          </div>
+          <div class="profiles-screen__decoration top-right"></div>
+          <div class="profiles-screen__decoration bottom-left"></div>
+          <div class="profiles-screen__decoration top-left"></div>
+          <div class="profiles-screen__decoration bottom-right"></div>
+        </div>
+      </div>
+    </article>
+    <article id="video-screen">
+      <div class="video-screen__content">
+        <div class="video-screen__camera">
+
+        </div>
+        <div class="video-screen__status">
+          <video src="/public/Socure_Icon_Orange.mp4" autoplay loop muted></video>
+          <div class="video-screen__status__text">
+            <h1 id="text-checking">Checking for deepfake</h1>
+            <h1 id="text-detected" style="display: none;">Deepfake detected</h1>
+            <h1 id="text-threat" style="display: none;">Threat uncovered</h1>
+          </div>
+        </div>
+        <img class="video-screen__logo" src="/public/logo-dark.svg" alt="Socure logo" />
+      </div>
+    </article>
+    <article id="end-screen">
+      <img class="end-screen__background" src="/public/dotted-background.svg" />
+      <div class="end-screen__content">
+        <h1>Faked in seconds. Caught just as fast.</h1>
+        <h2>Stop deepfake candidates before onboarding.</h2>
+        <img class="end-screen__logo" src="/public/logo.svg" alt="Socure logo" />
+      </div>
+    </article>
+    <article id="download-screen">
+      <div class="download-screen__content">
+        <img class="download-screen__logo" src="/public/logo.svg" alt="Socure logo" />
+        <div class="download-screen__card patterned-background">
+          <video id="video-download" autoplay loop muted></video>
+          <div class="download-screen__card__text">
+            <h3 class="mono">Download</h3>
+            <h1>Your video is ready.</h1>
+            <h3 class="mono">Text it to yourself</h3>
+          </div>
+        </div>
+        <div class="download-screen__buttons">
+          <button class="button button-tertiary">Try another face</button>
+          <button class="button button-secondary">Done</button>
+        </div>
+      </div>
+    </article>
+    <canvas id="stage-canvas"></canvas>
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
+    <script>
+      const API_BASE = 'http://127.0.0.1:8000';
+      const attractScreen = document.getElementById('attract-screen');
+      const profilesScreen = document.getElementById('profiles-screen');
+      const textChecking = document.getElementById('text-checking');
+      const textDetected = document.getElementById('text-detected');
+      const textThreat = document.getElementById('text-threat');
+
+      let profilesSwiper = null;
+
+      function initProfilesSwiper() {
+        if (profilesSwiper) {
+          profilesSwiper.update();
+          return;
+        }
+        profilesSwiper = new Swiper('.profiles-screen__profiles .swiper', {
+          loop: true,
+          slidesPerView: 'auto',
+          centeredSlides: true,
+          spaceBetween: 16,
+          autoplay: {
+            delay: 0,
+            disableOnInteraction: false,
+            pauseOnMouseEnter: true,
+          },
+          speed: 4000,
+          grabCursor: true,
+        });
+        profilesSwiper.on('click', () => {
+          const slide = profilesSwiper.clickedSlide;
+          if (slide && slide.dataset.face) {
+            selectFace(slide.dataset.face);
+          }
+        });
+        syncSelection();
+      }
+
+      attractScreen.addEventListener('click', () => {
+        profilesScreen.style.display = 'block';
+        selectFace('gigachad');
+        initProfilesSwiper();
+        attractScreen.style.transform = 'translateY(-100%)';
+        attractScreen.addEventListener('transitionend', () => {
+          attractScreen.style.display = 'none';
+        }, { once: true });
+      });
+
+      let selectedFace;
+
+      function syncSelection() {
+        profilesScreen
+          .querySelectorAll('.profiles-screen__profiles .swiper-slide')
+          .forEach(slide => {
+            slide.classList.toggle('selected', slide.dataset.face === selectedFace);
+          });
+      }
+
+      async function selectFace(face) {
+        if (!face) return;
+        selectedFace = face;
+        syncSelection();
+
+        try {
+          const imageUrl = `/public/${selectedFace}.png`;
+          const imageBlob = await (await fetch(imageUrl)).blob();
+          await fetch(`${API_BASE}/api/source`, {
+            method: "POST",
+            headers: { "Content-Type": "application/octet-stream" },
+            body: imageBlob,
+          });
+        } catch (err) {
+          console.error('Failed to upload source image', err);
+        }
+
+        setOpacity(1);
+      }
+
+      // ===================== Animation configuration =====================
+      const RESIZE_MS = 750; // webcam resize-to-full-size transition (precedes the canvas phase)
+
+      const ANIM = {
+        DEEPFAKE_HOLD_MS: 3000,   // step 1: show deepfake before dithering
+        DITHER_FADE_IN_MS: 1000,  // step 2: dither blocks reveal in
+        DITHER_HOLD_MS: 2000,     // step 3: hold full dither
+        FADE_OUT_MS: 2000,        // step 4: dither + deepfake fade out together
+        POST_FADE_OUT_HOLD_MS: 2000, // step 4b: brief pause on the clean feed after fade out
+        END_SLIDE_MS: 800,        // step 5: end screen slides up (recorded)
+        END_SCREEN_HOLD_MS: 3000, // step 5: hold end screen (still recording)
+        DOWNLOAD_SLIDE_MS: 800,   // step 6: download screen slides up (not recorded)
+
+        SLIDE_EASING: t => 1 - Math.pow(1 - t, 3), // ease-out, mirrors the profiles slide feel
+        DEEPFAKE_ON_OPACITY: 1,   // backend deepfake blend while "on"
+        OPACITY_THROTTLE_MS: 60,  // min interval between backend opacity updates during fades
+
+        RENDER_SCALE: Math.min(window.devicePixelRatio || 1, 2), // canvas / recording resolution multiplier
+        RECORD_FPS: 30,
+        RECORD_MIME: 'video/webm;codecs=vp9',
+      };
+
+      const DITHER = {
+        BLOCK_COLS: 128,
+        SHAPE_COLOR: '#FC5B1C',
+        DARK_COLOR: '#260D00',
+        SHAPE_GAP_RATIO: 0.2,
+        DARK_THRESHOLD: 0.33,
+        MID_THRESHOLD: 0.66,
+        NOTCH_PATH: new Path2D('M10 4.99805L5.00098 -0.000976562L0 5L4.99902 9.99902H0V-0.000976562H10V4.99805ZM10 9.99902H5.00293L10 5.00098V9.99902Z'),
+      };
+
+      // ===================== Elements =====================
+      const webcam = document.getElementById('webcam');
+      const videoScreen = document.getElementById('video-screen');
+      const cameraBox = videoScreen.querySelector('.video-screen__camera');
+      const statusVideo = videoScreen.querySelector('.video-screen__status video');
+      const endScreen = document.getElementById('end-screen');
+      const downloadScreen = document.getElementById('download-screen');
+      const videoDownload = document.getElementById('video-download');
+      const stageCanvas = document.getElementById('stage-canvas');
+      const stageCtx = stageCanvas.getContext('2d');
+
+      const ditherCanvas = document.createElement('canvas');
+      const ditherCtx = ditherCanvas.getContext('2d');
+      const tinyCanvas = document.createElement('canvas');
+      const tinyCtx = tinyCanvas.getContext('2d', { willReadFrequently: true });
+
+      const backButton = profilesScreen.querySelector('.profiles-screen__buttons .button-secondary');
+      const wearButton = profilesScreen.querySelector('.profiles-screen__buttons .button:not(.button-secondary)');
+
+      // ===================== Backend deepfake opacity =====================
+      let lastOpacitySentAt = 0;
+      function setOpacity(value) {
+        fetch(`${API_BASE}/api/opacity`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value }),
+        }).catch(err => console.error('Failed to set opacity', err));
+      }
+      function setOpacityThrottled(value) {
+        const now = performance.now();
+        if (now - lastOpacitySentAt < ANIM.OPACITY_THROTTLE_MS) return;
+        lastOpacitySentAt = now;
+        setOpacity(value);
+      }
+
+      // ===================== Cover-fit drawing helpers =====================
+      function coverCrop(sw, sh, dw, dh) {
+        const srcAspect = sw / sh;
+        const dstAspect = dw / dh;
+        if (srcAspect > dstAspect) {
+          const cw = sh * dstAspect;
+          return { sx: (sw - cw) / 2, sy: 0, cw, ch: sh };
+        }
+        const ch = sw / dstAspect;
+        return { sx: 0, sy: (sh - ch) / 2, cw: sw, ch };
+      }
+      function drawCover(ctx, src, sw, sh, dx, dy, dw, dh) {
+        if (!sw || !sh) return;
+        const { sx, sy, cw, ch } = coverCrop(sw, sh, dw, dh);
+        ctx.drawImage(src, sx, sy, cw, ch, dx, dy, dw, dh);
+      }
+
+      // ===================== Dither effect =====================
+      let revealThresholds = null;
+      let revealCols = 0;
+      let revealRows = 0;
+      let blockRows = 1;
+
+      // Assigns each block a random reveal threshold so blocks pop in out of order instead of sweeping evenly.
+      function ensureRevealThresholds(cols, rows) {
+        if (revealThresholds && revealCols === cols && revealRows === rows) return;
+        revealCols = cols;
+        revealRows = rows;
+        revealThresholds = new Float32Array(cols * rows);
+        for (let i = 0; i < revealThresholds.length; i++) revealThresholds[i] = Math.random();
+      }
+
+      // Downsamples the (cover-cropped) webcam to one pixel per block and returns each block's brightness (0-1).
+      function sampleLuminances(cols, rows) {
+        tinyCanvas.width = cols;
+        tinyCanvas.height = rows;
+        const { sx, sy, cw, ch } = coverCrop(webcam.videoWidth, webcam.videoHeight, cols, rows);
+        tinyCtx.drawImage(webcam, sx, sy, cw, ch, 0, 0, cols, rows);
+        const data = tinyCtx.getImageData(0, 0, cols, rows).data;
+        const lum = new Float32Array(cols * rows);
+        for (let i = 0; i < lum.length; i++) {
+          const o = i * 4;
+          lum[i] = (0.299 * data[o] + 0.587 * data[o + 1] + 0.114 * data[o + 2]) / 255;
+        }
+        return lum;
+      }
+
+      // Renders one block as a dark box, a notched shape, or a plain square depending on brightness.
+      function drawBlockShape(cellX, cellY, cellW, cellH, luminance) {
+        const size = Math.min(cellW, cellH);
+        const pad = size * DITHER.SHAPE_GAP_RATIO;
+        const shapeSize = size - pad;
+        const x = cellX + (cellW - size) / 2 + pad / 2;
+        const y = cellY + (cellH - size) / 2 + pad / 2;
+        if (luminance < DITHER.DARK_THRESHOLD) {
+          ditherCtx.fillStyle = DITHER.DARK_COLOR;
+          ditherCtx.fillRect(x, y, shapeSize, shapeSize);
+          return;
+        }
+        ditherCtx.fillStyle = DITHER.SHAPE_COLOR;
+        if (luminance < DITHER.MID_THRESHOLD) {
+          ditherCtx.save();
+          ditherCtx.translate(x, y);
+          ditherCtx.scale(shapeSize / 10, shapeSize / 10);
+          ditherCtx.fill(DITHER.NOTCH_PATH);
+          ditherCtx.restore();
+        } else {
+          ditherCtx.fillRect(x, y, shapeSize, shapeSize);
+        }
+      }
+
+      // Draws the dither into its offscreen canvas; blocks whose threshold exceeds progress stay hidden.
+      function renderDither(progress) {
+        const cols = DITHER.BLOCK_COLS;
+        const rows = blockRows;
+        ensureRevealThresholds(cols, rows);
+        const lum = sampleLuminances(cols, rows);
+        const bw = ditherCanvas.width / cols;
+        const bh = ditherCanvas.height / rows;
+        ditherCtx.clearRect(0, 0, ditherCanvas.width, ditherCanvas.height);
+        for (let row = 0; row < rows; row++) {
+          for (let col = 0; col < cols; col++) {
+            const i = row * cols + col;
+            if (revealThresholds[i] > progress) continue;
+            drawBlockShape(col * bw, row * bh, bw, bh, lum[i]);
+          }
+        }
+      }
+
+      // ===================== Chrome rasterization (DOM -> canvas) =====================
+      let videoChrome = null;
+      let endChrome = null;
+      let endChromePromise = null;
+
+      // Live <video> frames can't be serialized, so they're drawn live in the compositor. Only the
+      // webcam (absolutely positioned, and backed by a MediaStream) is excluded here — removing it
+      // doesn't shift any layout. The status icon <video> is kept so the flex/gap layout is preserved
+      // and the status text stays beside the icon rather than collapsing onto it.
+      function rasterize(node) {
+        return htmlToImage.toCanvas(node, {
+          pixelRatio: ANIM.RENDER_SCALE,
+          filter: n => n !== webcam,
+          backgroundColor: null,
+        });
+      }
+      async function refreshVideoChrome() {
+        try { videoChrome = await rasterize(videoScreen); }
+        catch (err) { console.error('Failed to rasterize video-screen', err); }
+      }
+      function prepareEndChrome() {
+        endScreen.style.display = 'block';
+        endChromePromise = rasterize(endScreen)
+          .then(c => { endChrome = c; })
+          .catch(err => console.error('Failed to rasterize end-screen', err));
+      }
+
+      // ===================== Layout measurement =====================
+      let cameraRect = { x: 0, y: 0, w: 0, h: 0 };
+      let statusRect = { x: 0, y: 0, w: 0, h: 0 };
+
+      function relRect(el, base, scale) {
+        const r = el.getBoundingClientRect();
+        return {
+          x: (r.left - base.left) * scale,
+          y: (r.top - base.top) * scale,
+          w: r.width * scale,
+          h: r.height * scale,
+        };
+      }
+      function measureStage() {
+        const vs = videoScreen.getBoundingClientRect();
+        stageCanvas.width = Math.round(vs.width * ANIM.RENDER_SCALE);
+        stageCanvas.height = Math.round(vs.height * ANIM.RENDER_SCALE);
+        const scale = stageCanvas.width / vs.width;
+        cameraRect = relRect(cameraBox, vs, scale);
+        statusRect = relRect(statusVideo, vs, scale);
+      }
+
+      // ===================== Compositor render loop =====================
+      let renderActive = false;
+      let ditherProgress = 0; // 0 = no dither, 1 = full dither
+      let endSlide = 0;       // 0 = hidden below, 1 = fully up
+
+      function renderFrame() {
+        const W = stageCanvas.width;
+        const H = stageCanvas.height;
+        stageCtx.clearRect(0, 0, W, H);
+
+        if (videoChrome) stageCtx.drawImage(videoChrome, 0, 0, W, H);
+
+        if (webcam.readyState >= 2) {
+          drawCover(stageCtx, webcam, webcam.videoWidth, webcam.videoHeight,
+            cameraRect.x, cameraRect.y, cameraRect.w, cameraRect.h);
+        }
+
+        if (ditherProgress > 0 && webcam.readyState >= 2) {
+          renderDither(ditherProgress);
+          stageCtx.drawImage(ditherCanvas, cameraRect.x, cameraRect.y, cameraRect.w, cameraRect.h);
+        }
+
+        if (statusVideo.readyState >= 2) {
+          drawCover(stageCtx, statusVideo, statusVideo.videoWidth, statusVideo.videoHeight,
+            statusRect.x, statusRect.y, statusRect.w, statusRect.h);
+        }
+
+        if (endChrome && endSlide > 0) {
+          const offset = H * (1 - ANIM.SLIDE_EASING(endSlide));
+          stageCtx.drawImage(endChrome, 0, offset, W, H);
+        }
+      }
+      function renderLoop() {
+        if (!renderActive) return;
+        renderFrame();
+        requestAnimationFrame(renderLoop);
+      }
+
+      // ===================== Status text =====================
+      const statusEls = { checking: textChecking, detected: textDetected, threat: textThreat };
+      let activeStatus = null;
+      function resetStatus() {
+        activeStatus = null;
+        Object.values(statusEls).forEach(el => {
+          el.style.display = 'none';
+          el.classList.remove('inactive');
+        });
+      }
+      // Reveals a new status line and marks the previously active one as inactive.
+      function activateStatus(key) {
+        if (activeStatus && activeStatus !== key) statusEls[activeStatus].classList.add('inactive');
+        const el = statusEls[key];
+        el.style.display = 'block';
+        el.classList.remove('inactive');
+        activeStatus = key;
+      }
+
+      // ===================== Recording =====================
+      let mediaRecorder = null;
+      let recordedChunks = [];
+      let recordedBlob = null;
+      let recordedUrl = null;
+
+      function startRecording() {
+        recordedChunks = [];
+        let mime = ANIM.RECORD_MIME;
+        if (!window.MediaRecorder || !MediaRecorder.isTypeSupported(mime)) {
+          mime = window.MediaRecorder && MediaRecorder.isTypeSupported('video/webm') ? 'video/webm' : '';
+        }
+        try {
+          const stream = stageCanvas.captureStream(ANIM.RECORD_FPS);
+          mediaRecorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+        } catch (err) {
+          console.error('Could not start recording', err);
+          mediaRecorder = null;
+          return;
+        }
+        mediaRecorder.ondataavailable = e => { if (e.data && e.data.size) recordedChunks.push(e.data); };
+        mediaRecorder.onstop = () => {
+          recordedBlob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'video/webm' });
+          if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+          recordedUrl = URL.createObjectURL(recordedBlob);
+          window.__boothRecording = { blob: recordedBlob, url: recordedUrl };
+          videoDownload.src = recordedUrl;
+          videoDownload.load();
+          const playback = videoDownload.play();
+          if (playback) playback.catch(() => {});
+          console.log(`Recording ready: ${recordedBlob.size} bytes -> ${recordedUrl}`);
+        };
+        mediaRecorder.start();
+      }
+      function stopRecording() {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+      }
+
+      // ===================== Timing helpers =====================
+      let currentRunId = 0;
+      const pendingTimeouts = [];
+      function clearPendingTimeouts() {
+        while (pendingTimeouts.length) clearTimeout(pendingTimeouts.pop());
+      }
+      function wait(ms) {
+        return new Promise(resolve => {
+          const id = setTimeout(resolve, ms);
+          pendingTimeouts.push(id);
+        });
+      }
+      // Generic rAF tween; abandons itself if a newer run (or reset) has taken over.
+      function tween(durationMs, onFrame, runId) {
+        return new Promise(resolve => {
+          const start = performance.now();
+          function step(now) {
+            if (runId !== currentRunId) return resolve();
+            const t = Math.min((now - start) / durationMs, 1);
+            onFrame(t);
+            if (t < 1) requestAnimationFrame(step);
+            else resolve();
+          }
+          requestAnimationFrame(step);
+        });
+      }
+
+      // ===================== Download screen (plain HTML, not recorded) =====================
+      function showDownloadScreen() {
+        downloadScreen.style.display = 'block';
+        downloadScreen.style.transition = 'none';
+        downloadScreen.style.transform = 'translate(-50%, 100%)';
+        void downloadScreen.offsetHeight; // force the starting position to paint
+        requestAnimationFrame(() => {
+          downloadScreen.style.transition = `transform ${ANIM.DOWNLOAD_SLIDE_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`;
+          downloadScreen.style.transform = 'translate(-50%, 0)';
+        });
+      }
+
+      // ===================== Main state machine =====================
+      function resetBooth() {
+        currentRunId++;
+        clearPendingTimeouts();
+        renderActive = false;
+        stopRecording();
+
+        ditherProgress = 0;
+        endSlide = 0;
+        videoChrome = null;
+        endChrome = null;
+        endChromePromise = null;
+        revealThresholds = null;
+        revealCols = 0;
+        revealRows = 0;
+
+        stageCanvas.style.display = 'none';
+        endScreen.style.display = 'none';
+        downloadScreen.style.display = 'none';
+        downloadScreen.style.transition = 'none';
+        downloadScreen.style.transform = 'translate(-50%, 100%)';
+        videoDownload.pause();
+        videoDownload.removeAttribute('src');
+        videoDownload.load();
+        if (recordedUrl) {
+          URL.revokeObjectURL(recordedUrl);
+          recordedUrl = null;
+        }
+        resetStatus();
+        activateStatus('checking');
+        //setOpacity(0);
+      }
+
+      // deepfake hold -> dither in -> hold -> dither + deepfake out -> end screen -> download screen.
+      async function runBoothAnimation() {
+        resetBooth();
+        const runId = ++currentRunId;
+        const cancelled = () => runId !== currentRunId;
+
+        measureStage();
+        ditherCanvas.width = Math.max(1, Math.round(cameraRect.w));
+        ditherCanvas.height = Math.max(1, Math.round(cameraRect.h));
+        blockRows = Math.max(1, Math.round(DITHER.BLOCK_COLS * (cameraRect.h / cameraRect.w)));
+
+        resetStatus();
+        activateStatus('checking');
+
+        // Rasterize the chrome before revealing the canvas so the hand-off is seamless.
+        await refreshVideoChrome();
+        if (cancelled()) return;
+        prepareEndChrome();
+
+        stageCanvas.style.display = 'block';
+        renderActive = true;
+        requestAnimationFrame(renderLoop);
+
+        // Step 1: deepfake on, hold.
+        //setOpacity(ANIM.DEEPFAKE_ON_OPACITY);
+        startRecording();
+        await wait(ANIM.DEEPFAKE_HOLD_MS);
+        if (cancelled()) return;
+
+        // Step 2: dither reveals in.
+        activateStatus('detected');
+        await refreshVideoChrome();
+        if (cancelled()) return;
+        await tween(ANIM.DITHER_FADE_IN_MS, t => { ditherProgress = t; }, runId);
+        if (cancelled()) return;
+
+        // Step 3: hold full dither.
+        ditherProgress = 1;
+        await wait(ANIM.DITHER_HOLD_MS);
+        if (cancelled()) return;
+
+        // Step 4: dither + deepfake fade out together.
+        activateStatus('threat');
+        await refreshVideoChrome();
+        if (cancelled()) return;
+        await tween(ANIM.FADE_OUT_MS, t => {
+          ditherProgress = 1 - t;
+          setOpacityThrottled(ANIM.DEEPFAKE_ON_OPACITY * (1 - t));
+        }, runId);
+        if (cancelled()) return;
+        ditherProgress = 0;
+        setOpacity(0);
+
+        // Step 4b: hold on the clean feed before the end screen.
+        await wait(ANIM.POST_FADE_OUT_HOLD_MS);
+        if (cancelled()) return;
+
+        // Step 5: end screen slides up (still recording).
+        if (endChromePromise) await endChromePromise;
+        if (cancelled()) return;
+        await tween(ANIM.END_SLIDE_MS, t => { endSlide = t; }, runId);
+        if (cancelled()) return;
+        endSlide = 1;
+        await wait(ANIM.END_SCREEN_HOLD_MS);
+        if (cancelled()) return;
+
+        // Recording ends with the end screen; freeze the canvas on its last frame.
+        stopRecording();
+        renderActive = false;
+
+        // Step 6: download screen (plain HTML) slides up over the frozen canvas.
+        showDownloadScreen();
+      }
+
+      // ===================== Profiles -> video-screen hand-off =====================
+      backButton.addEventListener('click', () => {
+        profilesScreen.style.display = 'none';
+        attractScreen.style.display = 'block';
+        requestAnimationFrame(() => {
+          attractScreen.style.transform = 'translateY(0)';
+        });
+      });
+
+      wearButton.addEventListener('click', () => {
+        const firstRect = webcam.getBoundingClientRect();
+
+        videoScreen.style.display = 'block';
+        cameraBox.appendChild(webcam);
+        webcam.style.zIndex = '10';
+        profilesScreen.style.display = 'none';
+
+        const camRect = cameraBox.getBoundingClientRect();
+        webcam.style.transition = 'none';
+        webcam.style.left = (firstRect.left - camRect.left) + 'px';
+        webcam.style.top = (firstRect.top - camRect.top) + 'px';
+        webcam.style.width = firstRect.width + 'px';
+        webcam.style.height = firstRect.height + 'px';
+
+        const easing = 'cubic-bezier(0.22, 1, 0.36, 1)';
+        const resizeSec = (RESIZE_MS / 1000) + 's';
+
+        // Start the canvas phase once the webcam has finished resizing to full size.
+        let handoffDone = false;
+        function startHandoff() {
+          if (handoffDone) return;
+          handoffDone = true;
+          webcam.removeEventListener('transitionend', onResizeEnd);
+          runBoothAnimation();
+        }
+        function onResizeEnd(e) {
+          if (['top', 'left', 'width', 'height'].indexOf(e.propertyName) === -1) return;
+          startHandoff();
+        }
+        webcam.addEventListener('transitionend', onResizeEnd);
+        const fallbackId = setTimeout(startHandoff, RESIZE_MS + 200); // safety net if no transition fires
+        pendingTimeouts.push(fallbackId);
+
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            webcam.style.transition =
+              `top ${resizeSec} ${easing}, left ${resizeSec} ${easing}, ` +
+              `width ${resizeSec} ${easing}, height ${resizeSec} ${easing}`;
+            webcam.style.left = '0px';
+            webcam.style.top = '0px';
+            webcam.style.width = '100%';
+            webcam.style.height = '100%';
+          });
+        });
+      });
+
+      // ===================== Webcam bootstrap =====================
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: true })
+          .then(stream => { webcam.srcObject = stream; })
+          .catch(err => { console.error('Error accessing webcam: ', err); });
+      }
+
+      setOpacity(0);
+    </script>
+  </body>
+</html>
