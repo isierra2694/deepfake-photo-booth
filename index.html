@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
       <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
       <title>Deepfake Photo Booth Test</title>
       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
   </head>
@@ -10,6 +10,7 @@
     <style>
       * {
         box-sizing: border-box;
+        user-select: none;
       }
       html, body {
         margin: 0;
@@ -316,12 +317,16 @@
         line-height: 110%;
         font-weight: 400;
         letter-spacing: -1.68px;
+        margin-top: 16px;
       }
       #download-screen .download-screen__content h3 {
         font-size: 24px;
         line-height: 145%;
         font-weight: 400;
         letter-spacing: 1.92px;
+      }
+      #download-screen .download-screen__content .text {
+        margin-top: 48px;
       }
       #download-screen .download-screen__logo {
         max-width: 576px;
@@ -341,6 +346,27 @@
       #download-screen .download-screen__card__text {
         padding: 40px;
         background-color: #260D00;
+      }
+      #download-screen .download-screen__card__phone {
+        display: flex;
+        gap: 8px;
+        margin-top: 16px;
+      }
+      #download-screen .download-screen__card__phone input {
+        width: 100%;
+        padding: 8px;
+        font-size: 16px;
+        max-width: 552px;
+        padding: 24px;
+        font-family: 'Socure Rules', sans-serif;
+        background-color: #FFFFFF;
+        font-size: 32px;
+        line-height: 155%;
+        letter-spacing: 0.64px;
+        color: #7D6B64;
+      }
+      #download-screen .download-screen__card__phone button {
+        flex: 1;
       }
       #download-screen .download-screen__buttons {
         display: flex;
@@ -446,7 +472,6 @@
           <div class="download-screen__card__text">
             <h3 class="mono">Download</h3>
             <h1>Your video is ready.</h1>
-            <h3 class="mono">Text it to yourself</h3>
           </div>
         </div>
         <div class="download-screen__buttons">
@@ -467,6 +492,8 @@
       const textThreat = document.getElementById('text-threat');
 
       let profilesSwiper = null;
+
+      document.addEventListener('contextmenu', event => event.preventDefault());
 
       function initProfilesSwiper() {
         if (profilesSwiper) {
