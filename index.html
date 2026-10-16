@@ -574,6 +574,8 @@
       const endScreen = document.getElementById('end-screen');
       const downloadScreen = document.getElementById('download-screen');
       const videoDownload = document.getElementById('video-download');
+      const tryAnotherButton = downloadScreen.querySelector('.download-screen__buttons .button-tertiary');
+      const doneButton = downloadScreen.querySelector('.download-screen__buttons .button-secondary');
       const stageCanvas = document.getElementById('stage-canvas');
       const stageCtx = stageCanvas.getContext('2d');
 
@@ -1033,6 +1035,39 @@
             webcam.style.width = '100%';
             webcam.style.height = '100%';
           });
+        });
+      });
+
+      // ===================== Download screen -> reset hand-off =====================
+      // Moves the webcam back into the profiles screen and clears the inline styles
+      // applied during the wear-this-face hand-off so the next run starts clean.
+      function restoreWebcamToProfiles() {
+        webcam.style.transition = 'none';
+        webcam.style.left = '';
+        webcam.style.top = '';
+        webcam.style.width = '';
+        webcam.style.height = '';
+        webcam.style.zIndex = '';
+        profilesScreen.insertBefore(webcam, profilesScreen.firstChild);
+      }
+
+      tryAnotherButton.addEventListener('click', () => {
+        resetBooth();
+        restoreWebcamToProfiles();
+        videoScreen.style.display = 'none';
+        profilesScreen.style.display = 'block';
+        selectFace('gigachad');
+        initProfilesSwiper();
+      });
+
+      doneButton.addEventListener('click', () => {
+        resetBooth();
+        restoreWebcamToProfiles();
+        videoScreen.style.display = 'none';
+        profilesScreen.style.display = 'none';
+        attractScreen.style.display = 'block';
+        requestAnimationFrame(() => {
+          attractScreen.style.transform = 'translateY(0)';
         });
       });
 
