@@ -347,6 +347,37 @@
         padding: 40px;
         background-color: #260D00;
       }
+      #download-screen .download-screen__qr {
+        margin-top: 32px;
+        display: flex;
+        align-items: center;
+        gap: 24px;
+      }
+      #download-screen .download-screen__qr canvas {
+        display: none;
+        width: 200px;
+        height: 200px;
+        background-color: #FFFFFF;
+        padding: 16px;
+        border-radius: 8px;
+        image-rendering: pixelated;
+      }
+      #download-screen .download-screen__qr.is-ready canvas {
+        display: block;
+      }
+      #download-screen .download-screen__qr__status {
+        font-size: 20px;
+        line-height: 145%;
+        letter-spacing: 1.6px;
+        color: #FC5B1C;
+        margin: 0;
+      }
+      #download-screen .download-screen__qr.is-ready .download-screen__qr__status {
+        color: #FFFFFF;
+      }
+      #download-screen .download-screen__qr.is-error .download-screen__qr__status {
+        color: #FC5B1C;
+      }
       #download-screen .download-screen__card__phone {
         display: flex;
         gap: 8px;
@@ -472,6 +503,10 @@
           <div class="download-screen__card__text">
             <h3 class="mono">Download</h3>
             <h1>Your video is ready.</h1>
+            <div class="download-screen__qr" id="download-qr">
+              <canvas id="download-qr-canvas"></canvas>
+              <p class="download-screen__qr__status mono" id="download-qr-status">Preparing your download&hellip;</p>
+            </div>
           </div>
         </div>
         <div class="download-screen__buttons">
@@ -483,8 +518,21 @@
     <canvas id="stage-canvas"></canvas>
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+    <!-- Vercel Blob client-upload SDK (ESM). Exposes window.__blobUpload. -->
+    <script type="module">
+      import { upload } from 'https://esm.sh/@vercel/blob@2.8.2/client';
+      window.__blobUpload = upload;
+    </script>
     <script>
       const API_BASE = 'http://127.0.0.1:8000';
+
+      // ===================== Vercel Blob upload config =====================
+      // URL of your deployed serverless function (see vercel-blob-upload/README.md).
+      const UPLOAD_ENDPOINT = 'https://YOUR-PROJECT.vercel.app/api/upload';
+      // Base URL of your Lovable landing page. The QR points here with ?v=<videoId>.
+      const LANDING_PAGE_BASE = 'https://YOUR-LOVABLE-PAGE';
+
       const attractScreen = document.getElementById('attract-screen');
       const profilesScreen = document.getElementById('profiles-screen');
       const textChecking = document.getElementById('text-checking');
@@ -581,7 +629,14 @@
 
         RENDER_SCALE: Math.min(window.devicePixelRatio || 1, 2), // canvas / recording resolution multiplier
         RECORD_FPS: 30,
-        RECORD_MIME: 'video/webm;codecs=vp9',
+        // Preferred recording formats, best first. MP4/H.264 is iPhone-playable and
+        // records natively in Safari; Chromium/Firefox fall back to WebM.
+        RECORD_MIME_CANDIDATES: [
+          'video/mp4;codecs=avc1.42E01E',
+          'video/mp4',
+          'video/webm;codecs=vp9',
+          'video/webm',
+        ],
       };
 
       const DITHER = {
@@ -831,12 +886,26 @@
       let recordedChunks = [];
       let recordedBlob = null;
       let recordedUrl = null;
+      let recordedMime = '';
+
+      function pickRecordMime() {
+        if (!window.MediaRecorder) return '';
+        for (const candidate of ANIM.RECORD_MIME_CANDIDATES) {
+          if (MediaRecorder.isTypeSupported(candidate)) return candidate;
+        }
+        return '';
+      }
+
+      function extForMime(mime) {
+        return /mp4/i.test(mime) ? 'mp4' : 'webm';
+      }
 
       function startRecording() {
         recordedChunks = [];
-        let mime = ANIM.RECORD_MIME;
-        if (!window.MediaRecorder || !MediaRecorder.isTypeSupported(mime)) {
-          mime = window.MediaRecorder && MediaRecorder.isTypeSupported('video/webm') ? 'video/webm' : '';
+        const mime = pickRecordMime();
+        recordedMime = mime;
+        if (!/mp4/i.test(mime)) {
+          console.warn('This browser cannot record MP4 — recording WebM, which iPhones cannot play. Run the booth in Safari for MP4.');
         }
         try {
           const stream = stageCanvas.captureStream(ANIM.RECORD_FPS);
@@ -848,7 +917,8 @@
         }
         mediaRecorder.ondataavailable = e => { if (e.data && e.data.size) recordedChunks.push(e.data); };
         mediaRecorder.onstop = () => {
-          recordedBlob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'video/webm' });
+          const type = mediaRecorder.mimeType || recordedMime || 'video/webm';
+          recordedBlob = new Blob(recordedChunks, { type });
           if (recordedUrl) URL.revokeObjectURL(recordedUrl);
           recordedUrl = URL.createObjectURL(recordedBlob);
           window.__boothRecording = { blob: recordedBlob, url: recordedUrl };
@@ -856,12 +926,81 @@
           videoDownload.load();
           const playback = videoDownload.play();
           if (playback) playback.catch(() => {});
-          console.log(`Recording ready: ${recordedBlob.size} bytes -> ${recordedUrl}`);
+          console.log(`Recording ready: ${recordedBlob.size} bytes (${type}) -> ${recordedUrl}`);
+          uploadRecording(recordedBlob, type, currentRunId);
         };
         mediaRecorder.start();
       }
       function stopRecording() {
         if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+      }
+
+      // ===================== Upload to Vercel Blob + QR =====================
+      const qrWrap = document.getElementById('download-qr');
+      const qrCanvas = document.getElementById('download-qr-canvas');
+      const qrStatus = document.getElementById('download-qr-status');
+
+      function setQrState(state, message) {
+        qrWrap.classList.remove('is-ready', 'is-error');
+        if (state) qrWrap.classList.add(state);
+        if (message != null) qrStatus.textContent = message;
+      }
+
+      function generateVideoId() {
+        if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+          const r = (Math.random() * 16) | 0;
+          return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+        });
+      }
+
+      async function uploadRecording(blob, type, runId) {
+        setQrState(null, 'Preparing your download\u2026');
+
+        if (!/mp4/i.test(type)) {
+          setQrState('is-error', 'Recorded in a non-MP4 format. Run the booth in Safari to enable QR download.');
+          return;
+        }
+        if (typeof window.__blobUpload !== 'function') {
+          setQrState('is-error', 'Upload library not loaded. Check your internet connection.');
+          return;
+        }
+        if (UPLOAD_ENDPOINT.includes('YOUR-PROJECT') || LANDING_PAGE_BASE.includes('YOUR-LOVABLE-PAGE')) {
+          setQrState('is-error', 'Upload not configured. Set UPLOAD_ENDPOINT and LANDING_PAGE_BASE in index.html.');
+          return;
+        }
+
+        const videoId = generateVideoId();
+        try {
+          const result = await window.__blobUpload(`videos/${videoId}.mp4`, blob, {
+            access: 'public',
+            contentType: 'video/mp4',
+            handleUploadUrl: UPLOAD_ENDPOINT,
+          });
+          if (runId !== currentRunId) return; // a reset happened mid-upload; drop stale result
+          console.log('Uploaded to Vercel Blob:', result.url);
+          const landingUrl = `${LANDING_PAGE_BASE.replace(/\/$/, '')}/?v=${encodeURIComponent(videoId)}`;
+          await renderQr(landingUrl);
+          if (runId !== currentRunId) return;
+          setQrState('is-ready', 'Scan to download your video');
+        } catch (err) {
+          if (runId !== currentRunId) return;
+          console.error('Upload failed', err);
+          setQrState('is-error', 'Upload failed. Please try again.');
+        }
+      }
+
+      function renderQr(text) {
+        return new Promise((resolve, reject) => {
+          if (!window.QRCode || !QRCode.toCanvas) {
+            reject(new Error('QRCode library not loaded'));
+            return;
+          }
+          QRCode.toCanvas(qrCanvas, text, { width: 200, margin: 1 }, err => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
       }
 
       // ===================== Timing helpers =====================
@@ -931,6 +1070,7 @@
           URL.revokeObjectURL(recordedUrl);
           recordedUrl = null;
         }
+        setQrState(null, 'Preparing your download\u2026');
         resetStatus();
         activateStatus('checking');
         //setOpacity(0);
