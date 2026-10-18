@@ -581,7 +581,7 @@
 
         RENDER_SCALE: Math.min(window.devicePixelRatio || 1, 2), // canvas / recording resolution multiplier
         RECORD_FPS: 30,
-        RECORD_MIME: 'video/webm;codecs=vp9',
+        RECORD_MIME: 'video/mp4',
       };
 
       const DITHER = {
@@ -832,12 +832,25 @@
       let recordedBlob = null;
       let recordedUrl = null;
 
+      function pickRecordingMime() {
+        const candidates = [
+          ANIM.RECORD_MIME,
+          'video/mp4;codecs=avc1',
+          'video/mp4',
+          'video/webm;codecs=vp9',
+          'video/webm',
+        ];
+        if (window.MediaRecorder) {
+          for (const candidate of candidates) {
+            if (candidate && MediaRecorder.isTypeSupported(candidate)) return candidate;
+          }
+        }
+        return '';
+      }
+
       function startRecording() {
         recordedChunks = [];
-        let mime = ANIM.RECORD_MIME;
-        if (!window.MediaRecorder || !MediaRecorder.isTypeSupported(mime)) {
-          mime = window.MediaRecorder && MediaRecorder.isTypeSupported('video/webm') ? 'video/webm' : '';
-        }
+        const mime = pickRecordingMime();
         try {
           const stream = stageCanvas.captureStream(ANIM.RECORD_FPS);
           mediaRecorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
@@ -848,7 +861,8 @@
         }
         mediaRecorder.ondataavailable = e => { if (e.data && e.data.size) recordedChunks.push(e.data); };
         mediaRecorder.onstop = () => {
-          recordedBlob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'video/webm' });
+          const type = mediaRecorder.mimeType || mime || 'video/webm';
+          recordedBlob = new Blob(recordedChunks, { type });
           if (recordedUrl) URL.revokeObjectURL(recordedUrl);
           recordedUrl = URL.createObjectURL(recordedBlob);
           window.__boothRecording = { blob: recordedBlob, url: recordedUrl };
@@ -857,8 +871,20 @@
           const playback = videoDownload.play();
           if (playback) playback.catch(() => {});
           console.log(`Recording ready: ${recordedBlob.size} bytes -> ${recordedUrl}`);
+          downloadRecording();
         };
         mediaRecorder.start();
+      }
+      // Placeholder: auto-download the recording as soon as it finishes.
+      function downloadRecording() {
+        if (!recordedBlob || !recordedUrl) return;
+        const extension = (recordedBlob.type || '').includes('mp4') ? 'mp4' : 'webm';
+        const link = document.createElement('a');
+        link.href = recordedUrl;
+        link.download = `deepfake-photo-booth-${Date.now()}.${extension}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
       }
       function stopRecording() {
         if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
