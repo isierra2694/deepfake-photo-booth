@@ -368,6 +368,22 @@
       #download-screen .download-screen__card__phone button {
         flex: 1;
       }
+      #download-screen .download-screen__card__phone button[disabled] {
+        opacity: 0.5;
+        cursor: default;
+      }
+      #download-screen .download-screen__card__status {
+        margin-top: 16px;
+        min-height: 36px;
+        font-family: 'Aeonik Mono', monospace;
+        font-size: 24px;
+        line-height: 145%;
+        letter-spacing: 1.2px;
+        color: #FFFFFF;
+      }
+      #download-screen .download-screen__card__status.is-error {
+        color: #FC5B1C;
+      }
       #download-screen .download-screen__buttons {
         display: flex;
         gap: 8px;
@@ -472,6 +488,12 @@
           <div class="download-screen__card__text">
             <h3 class="mono">Download</h3>
             <h1>Your video is ready.</h1>
+            <form id="share-form" class="download-screen__card__phone" novalidate>
+              <input id="share-email" type="email" inputmode="email" autocomplete="email"
+                     autocapitalize="off" spellcheck="false" placeholder="Enter your email" />
+              <button type="submit" id="share-submit" class="button">Submit</button>
+            </form>
+            <p id="share-status" class="download-screen__card__status" role="status" aria-live="polite"></p>
           </div>
         </div>
         <div class="download-screen__buttons">
@@ -485,6 +507,7 @@
     <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
     <script>
       const API_BASE = 'http://127.0.0.1:8000';
+      const SHARE_API_BASE = 'http://127.0.0.1:8787';
       const attractScreen = document.getElementById('attract-screen');
       const profilesScreen = document.getElementById('profiles-screen');
       const textChecking = document.getElementById('text-checking');
@@ -604,6 +627,11 @@
       const videoDownload = document.getElementById('video-download');
       const tryAnotherButton = downloadScreen.querySelector('.download-screen__buttons .button-tertiary');
       const doneButton = downloadScreen.querySelector('.download-screen__buttons .button-secondary');
+      const shareForm = document.getElementById('share-form');
+      const shareEmail = document.getElementById('share-email');
+      const shareSubmit = document.getElementById('share-submit');
+      const shareStatus = document.getElementById('share-status');
+      const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       const stageCanvas = document.getElementById('stage-canvas');
       const stageCtx = stageCanvas.getContext('2d');
 
@@ -871,24 +899,71 @@
           const playback = videoDownload.play();
           if (playback) playback.catch(() => {});
           console.log(`Recording ready: ${recordedBlob.size} bytes -> ${recordedUrl}`);
-          downloadRecording();
         };
         mediaRecorder.start();
-      }
-      // Placeholder: auto-download the recording as soon as it finishes.
-      function downloadRecording() {
-        if (!recordedBlob || !recordedUrl) return;
-        const extension = (recordedBlob.type || '').includes('mp4') ? 'mp4' : 'webm';
-        const link = document.createElement('a');
-        link.href = recordedUrl;
-        link.download = `deepfake-photo-booth-${Date.now()}.${extension}`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
       }
       function stopRecording() {
         if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
       }
+
+      // ===================== Share (email-gated upload) =====================
+      let shareSubmitted = false;
+
+      function setShareStatus(message, isError) {
+        shareStatus.textContent = message || '';
+        shareStatus.classList.toggle('is-error', !!isError);
+      }
+
+      function resetShareForm() {
+        shareSubmitted = false;
+        shareForm.style.display = '';
+        shareEmail.value = '';
+        shareEmail.disabled = false;
+        shareSubmit.disabled = false;
+        setShareStatus('', false);
+      }
+
+      // The recorded video is only uploaded when the attendee submits a valid
+      // email. Ignoring the field (or pressing another button) uploads nothing.
+      shareForm.addEventListener('submit', async event => {
+        event.preventDefault();
+        if (shareSubmitted) return;
+
+        const email = shareEmail.value.trim();
+        if (!EMAIL_RE.test(email)) {
+          setShareStatus('Please enter a valid email address.', true);
+          shareEmail.focus();
+          return;
+        }
+        if (!recordedBlob || !recordedBlob.size) {
+          setShareStatus('Your video is still processing. Please try again.', true);
+          return;
+        }
+
+        shareEmail.disabled = true;
+        shareSubmit.disabled = true;
+        setShareStatus('Uploading your video…', false);
+
+        const form = new FormData();
+        form.append('email', email);
+        form.append('video', recordedBlob, `deepfake-photo-booth-${Date.now()}.mp4`);
+
+        try {
+          const res = await fetch(`${SHARE_API_BASE}/api/share`, { method: 'POST', body: form });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.ok) {
+            throw new Error(data.error || 'Upload failed.');
+          }
+          shareSubmitted = true;
+          shareForm.style.display = 'none';
+          setShareStatus('Check your inbox — your video is on its way!', false);
+        } catch (err) {
+          console.error('Share failed', err);
+          shareEmail.disabled = false;
+          shareSubmit.disabled = false;
+          setShareStatus('Something went wrong. Please try again.', true);
+        }
+      });
 
       // ===================== Timing helpers =====================
       let currentRunId = 0;
@@ -950,6 +1025,7 @@
         downloadScreen.style.display = 'none';
         downloadScreen.style.transition = 'none';
         downloadScreen.style.transform = 'translate(-50%, 100%)';
+        resetShareForm();
         videoDownload.pause();
         videoDownload.removeAttribute('src');
         videoDownload.load();

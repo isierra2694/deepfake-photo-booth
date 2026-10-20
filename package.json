@@ -4,8 +4,17 @@
   "private": true,
   "description": "Deepfake Photo Booth front-end",
   "scripts": {
-    "start": "live-server --port=3000 --no-browser",
-    "dev": "live-server --port=3000"
+    "start": "node scripts/start.js",
+    "frontend": "live-server --port=3000 --no-browser",
+    "dev": "live-server --port=3000",
+    "server": "node server/index.js"
+  },
+  "dependencies": {
+    "@vercel/blob": "^2.8.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "multer": "^2.4.0"
   },
   "devDependencies": {
     "live-server": "^1.2.2"
