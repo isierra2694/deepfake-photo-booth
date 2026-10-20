@@ -331,7 +331,7 @@
         flex: 1;
         display: flex;
         flex-direction: column;
-        justify-content: space-between;
+        gap: 40px
       }
       #video-download {
         max-width: 405px;
@@ -341,6 +341,9 @@
       #download-screen .download-screen__card__text {
         padding: 40px;
         background-color: #260D00;
+      }
+      #download-screen .download-screen__card__text .form-text {
+        margin-top: 40px;
       }
       #download-screen .download-screen__card__phone {
         display: flex;
@@ -366,6 +369,64 @@
       #download-screen .download-screen__card__phone button[disabled] {
         opacity: 0.5;
         cursor: default;
+      }
+      #email-keyboard {
+        display: none;
+        position: absolute;
+        z-index: 10;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 20px;
+        background: #171310;
+        border-top: 3px solid #FC5B1C;
+      }
+      #email-keyboard.is-open {
+        display: block;
+      }
+      .email-keyboard__header {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 12px;
+      }
+      .email-keyboard__rows {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .email-keyboard__row {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+      }
+      .email-keyboard__key {
+        min-width: 0;
+        flex: 1;
+        height: 64px;
+        padding: 8px;
+        border: 0;
+        border-radius: 4px;
+        background: #FFFFFF;
+        color: #050505;
+        font: 32px 'Aeonik Mono', monospace;
+        cursor: pointer;
+      }
+      .email-keyboard__key.is-wide {
+        flex: 1.6;
+        background: #7D6B64;
+        color: #FFFFFF;
+      }
+      .email-keyboard__key.is-active {
+        background: #FC5B1C;
+        color: #050505;
+      }
+      .email-keyboard__key--close {
+        width: 140px;
+        height: 52px;
+        border: 0;
+        background: #7D6B64;
+        color: #FFFFFF;
+        font: 24px 'Aeonik Mono', monospace;
       }
       #download-screen .download-screen__card__status {
         margin-top: 16px;
@@ -467,8 +528,9 @@
           <div class="download-screen__card__text">
             <h3 class="mono">Download</h3>
             <h1>Your video is ready.</h1>
+            <h3 class="form-text">Enter your email to download</h3>
             <form id="share-form" class="download-screen__card__phone" novalidate>
-              <input id="share-email" type="email" inputmode="email" autocomplete="email"
+              <input id="share-email" type="text" inputmode="none" autocomplete="email" readonly
                      autocapitalize="off" spellcheck="false" placeholder="Enter your email" />
               <button type="submit" id="share-submit" class="button">Submit</button>
             </form>
@@ -479,6 +541,12 @@
           <button class="button button-tertiary">Try another face</button>
           <button class="button button-secondary">Done</button>
         </div>
+      </div>
+      <div id="email-keyboard" aria-label="On-screen email keyboard">
+        <div class="email-keyboard__header">
+          <button type="button" class="email-keyboard__key--close" id="email-keyboard-close">Close</button>
+        </div>
+        <div class="email-keyboard__rows" id="email-keyboard-rows"></div>
       </div>
     </article>
     <canvas id="stage-canvas"></canvas>
@@ -584,6 +652,9 @@
       const shareEmail = document.getElementById('share-email');
       const shareSubmit = document.getElementById('share-submit');
       const shareStatus = document.getElementById('share-status');
+      const emailKeyboard = document.getElementById('email-keyboard');
+      const emailKeyboardRows = document.getElementById('email-keyboard-rows');
+      const emailKeyboardClose = document.getElementById('email-keyboard-close');
       const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       const stageCanvas = document.getElementById('stage-canvas');
       const stageCtx = stageCanvas.getContext('2d');
@@ -861,6 +932,75 @@
 
       // ===================== Share (email-gated upload) =====================
       let shareSubmitted = false;
+      let emailKeyboardShift = false;
+
+      const emailKeyboardLayout = [
+        [['1', '!'], ['2', '@'], ['3', '#'], ['4', '$'], ['5', '%'], ['6', '^'], ['7', '&'], ['8', '*'], ['9', '('], ['0', ')']],
+        [...'qwertyuiop'].map(key => [key, key.toUpperCase()]),
+        [...'asdfghjkl'].map(key => [key, key.toUpperCase()]),
+        [
+          { action: 'shift', label: 'Shift', wide: true },
+          ...[...'zxcvbnm'].map(key => [key, key.toUpperCase()]),
+          { action: 'backspace', label: '⌫', wide: true },
+        ],
+        [['@', '@'], ['.', '.'], ['-', '_'], ['_', '-'], { action: 'space', label: 'Space', wide: true }],
+      ];
+
+      function renderEmailKeyboard() {
+        emailKeyboardRows.replaceChildren();
+        emailKeyboardLayout.forEach(row => {
+          const rowElement = document.createElement('div');
+          rowElement.className = 'email-keyboard__row';
+          row.forEach(item => {
+            const key = Array.isArray(item)
+              ? { value: item[0], shiftedValue: item[1], label: emailKeyboardShift ? item[1] : item[0] }
+              : item;
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = `email-keyboard__key${key.wide ? ' is-wide' : ''}${key.action === 'shift' && emailKeyboardShift ? ' is-active' : ''}`;
+            button.textContent = key.label || (emailKeyboardShift ? key.shiftedValue : key.value);
+            if (key.action) button.dataset.action = key.action;
+            if (key.value) button.dataset.value = emailKeyboardShift ? key.shiftedValue : key.value;
+            if (key.action === 'shift') button.setAttribute('aria-pressed', String(emailKeyboardShift));
+            rowElement.append(button);
+          });
+          emailKeyboardRows.append(rowElement);
+        });
+      }
+
+      function closeEmailKeyboard() {
+        emailKeyboard.classList.remove('is-open');
+        emailKeyboardShift = false;
+      }
+
+      shareEmail.addEventListener('click', () => {
+        emailKeyboard.classList.add('is-open');
+        renderEmailKeyboard();
+      });
+
+      emailKeyboardClose.addEventListener('click', closeEmailKeyboard);
+
+      emailKeyboardRows.addEventListener('click', event => {
+        const key = event.target.closest('button');
+        if (!key) return;
+        if (key.dataset.action === 'shift') {
+          emailKeyboardShift = !emailKeyboardShift;
+          renderEmailKeyboard();
+          return;
+        }
+
+        const start = shareEmail.selectionStart ?? shareEmail.value.length;
+        const end = shareEmail.selectionEnd ?? start;
+        if (key.dataset.action === 'backspace') {
+          if (start === end && start > 0) shareEmail.setRangeText('', start - 1, end, 'end');
+          else shareEmail.setRangeText('', start, end, 'end');
+        } else {
+          const value = key.dataset.action === 'space' ? ' ' : key.dataset.value;
+          if (value) shareEmail.setRangeText(value, start, end, 'end');
+        }
+        emailKeyboardShift = false;
+        renderEmailKeyboard();
+      });
 
       function setShareStatus(message, isError) {
         shareStatus.textContent = message || '';
@@ -869,6 +1009,7 @@
 
       function resetShareForm() {
         shareSubmitted = false;
+        closeEmailKeyboard();
         shareForm.style.display = '';
         shareEmail.value = '';
         shareEmail.disabled = false;
@@ -908,6 +1049,7 @@
             throw new Error(data.error || 'Upload failed.');
           }
           shareSubmitted = true;
+          closeEmailKeyboard();
           shareForm.style.display = 'none';
           setShareStatus('Check your inbox — your video is on its way!', false);
         } catch (err) {
