@@ -1034,6 +1034,7 @@
           return;
         }
 
+        const shareRunId = currentRunId;
         shareEmail.disabled = true;
         shareSubmit.disabled = true;
         setShareStatus('Uploading your video…', false);
@@ -1045,6 +1046,7 @@
         try {
           const res = await fetch(`${SHARE_API_BASE}/api/share`, { method: 'POST', body: form });
           const data = await res.json().catch(() => ({}));
+          if (shareRunId !== currentRunId) return;
           if (!res.ok || !data.ok) {
             throw new Error(data.error || 'Upload failed.');
           }
@@ -1053,6 +1055,7 @@
           shareForm.style.display = 'none';
           setShareStatus('Check your inbox — your video is on its way!', false);
         } catch (err) {
+          if (shareRunId !== currentRunId) return;
           console.error('Share failed', err);
           shareEmail.disabled = false;
           shareSubmit.disabled = false;
@@ -1062,6 +1065,29 @@
 
       // ===================== Timing helpers =====================
       let currentRunId = 0;
+      let recordSequenceActive = false;
+      let inactivityTimeout = null;
+      const INACTIVITY_MS = 60_000;
+
+      function resetInactivityTimer() {
+        clearTimeout(inactivityTimeout);
+        if (recordSequenceActive) return;
+        inactivityTimeout = setTimeout(() => {
+          if (!recordSequenceActive && attractScreen.style.display === 'none') {
+            returnToAttract();
+          }
+        }, INACTIVITY_MS);
+      }
+
+      function suspendInactivityTimer() {
+        recordSequenceActive = true;
+        clearTimeout(inactivityTimeout);
+      }
+
+      ['pointerdown', 'pointermove', 'keydown', 'wheel', 'input'].forEach(eventName => {
+        document.addEventListener(eventName, resetInactivityTimer, { capture: true, passive: true });
+      });
+
       const pendingTimeouts = [];
       function clearPendingTimeouts() {
         while (pendingTimeouts.length) clearTimeout(pendingTimeouts.pop());
@@ -1089,6 +1115,8 @@
 
       // ===================== Download screen (plain HTML, not recorded) =====================
       function showDownloadScreen() {
+        recordSequenceActive = false;
+        resetInactivityTimer();
         downloadScreen.style.display = 'block';
         downloadScreen.style.transition = 'none';
         downloadScreen.style.transform = 'translate(-50%, 100%)';
@@ -1101,6 +1129,8 @@
 
       // ===================== Main state machine =====================
       function resetBooth() {
+        recordSequenceActive = false;
+        resetInactivityTimer();
         currentRunId++;
         clearPendingTimeouts();
         renderActive = false;
@@ -1136,6 +1166,7 @@
       // deepfake hold -> dither in -> hold -> dither + deepfake out -> end screen -> download screen.
       async function runBoothAnimation() {
         resetBooth();
+        suspendInactivityTimer();
         const runId = ++currentRunId;
         const cancelled = () => runId !== currentRunId;
 
@@ -1217,6 +1248,7 @@
       });
 
       wearButton.addEventListener('click', () => {
+        suspendInactivityTimer();
         const firstRect = webcam.getBoundingClientRect();
 
         videoScreen.style.display = 'block';
@@ -1284,7 +1316,7 @@
         selectFace('gigachad');
       });
 
-      doneButton.addEventListener('click', () => {
+      function returnToAttract() {
         resetBooth();
         restoreWebcamToProfiles();
         videoScreen.style.display = 'none';
@@ -1293,7 +1325,9 @@
         requestAnimationFrame(() => {
           attractScreen.style.transform = 'translateY(0)';
         });
-      });
+      }
+
+      doneButton.addEventListener('click', returnToAttract);
 
       // ===================== Webcam bootstrap =====================
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
