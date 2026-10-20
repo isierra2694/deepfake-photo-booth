@@ -76,7 +76,7 @@ app.get('/health', (_req, res) => {
 
 // Use the placeholder landing page until the real share page is ready.
 function buildShareLink(videoId) {
-  const link = new URL('https://www.example.com');
+  const link = new URL('https://socure-deepfake-photo-booth.lovable.app/');
   link.searchParams.set('video', videoId);
   return link.toString();
 }

@@ -80,6 +80,16 @@
         width: auto;
         margin: 0 auto;
       }
+      #attract-screen h1 {
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(100%, 56.25vh);
+        padding: 40px;
+        color: #FFFFFF;
+        text-align: center;
+      }
       #final-screen {
         display: none;
       }
@@ -461,6 +471,7 @@
     </style>
     <article id="attract-screen">
       <video src="/public/attract-video.mp4" autoplay loop muted></video>
+      <h1 class="patterned-background">Tap to start</h1>
     </article>
     <article id="profiles-screen">
       <video id="webcam" autoplay playsinline></video>
