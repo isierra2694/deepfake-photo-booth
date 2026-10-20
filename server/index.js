@@ -13,6 +13,7 @@ require('dotenv').config();
 
 const crypto = require('crypto');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
@@ -29,7 +30,7 @@ const {
 
 const MAX_UPLOAD_BYTES = 100 * 1024 * 1024; // 100 MB ceiling so a huge file can't hang the box
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const LOG_DIR = path.join(__dirname, '..', 'logs');
+const LOG_DIR = path.join(os.homedir(), 'Documents', 'deepfake-photo-booth-logs');
 const UPLOAD_LOG = path.join(LOG_DIR, 'video-uploads.log');
 
 fs.mkdirSync(LOG_DIR, { recursive: true });
