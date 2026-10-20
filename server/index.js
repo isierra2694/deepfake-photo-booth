@@ -33,6 +33,7 @@ const LOG_DIR = path.join(__dirname, '..', 'logs');
 const UPLOAD_LOG = path.join(LOG_DIR, 'video-uploads.log');
 
 fs.mkdirSync(LOG_DIR, { recursive: true });
+fs.closeSync(fs.openSync(UPLOAD_LOG, 'a', 0o600));
 
 async function logUpload({ id, email = '', status, error = '' }) {
   const entry = {
@@ -107,6 +108,7 @@ app.post('/api/share', (req, _res, next) => {
   next();
 }, upload.single('video'), async (req, res) => {
   const email = (req.body?.email || '').trim();
+  await logUpload({ id: req.uploadId, email, status: 'email_submission_received' });
 
   // Validation: no email or no video means no upload (defense-in-depth; the
   // frontend also gates this).
@@ -184,4 +186,5 @@ app.use(async (err, req, res, _next) => {
 
 app.listen(Number(PORT), () => {
   console.log(`[share] Listening on http://127.0.0.1:${PORT} (allowed origin: ${ALLOWED_ORIGIN})`);
+  console.log(`[share] Email submission log: ${UPLOAD_LOG}`);
 });

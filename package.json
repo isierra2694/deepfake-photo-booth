@@ -5,8 +5,8 @@
   "description": "Deepfake Photo Booth front-end",
   "scripts": {
     "start": "node scripts/start.js",
-    "frontend": "live-server --port=3000 --no-browser",
-    "dev": "live-server --port=3000",
+    "frontend": "live-server --port=3000 --no-browser --ignore=logs",
+    "dev": "live-server --port=3000 --ignore=logs",
     "server": "node server/index.js"
   },
   "dependencies": {
