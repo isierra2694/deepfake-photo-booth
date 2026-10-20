@@ -531,10 +531,11 @@
           autoplay: {
             delay: 0,
             disableOnInteraction: false,
-            pauseOnMouseEnter: true,
+            pauseOnMouseEnter: false,
           },
           speed: 4000,
-          grabCursor: true,
+          allowTouchMove: false,
+          grabCursor: false,
         });
         profilesSwiper.on('click', () => {
           const slide = profilesSwiper.clickedSlide;
