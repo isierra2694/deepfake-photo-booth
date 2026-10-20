@@ -4,7 +4,6 @@
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
       <title>Deepfake Photo Booth Test</title>
-      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
   </head>
   <body>
     <style>
@@ -139,25 +138,21 @@
       #profiles-screen .profiles-screen__profiles {
         margin-top: 20px;
       }
-      #profiles-screen .profiles-screen__profiles .swiper {
-        width: 100%;
+      #profiles-screen .profiles-screen__profiles {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 16px;
       }
-      #profiles-screen .profiles-screen__profiles .swiper-wrapper {
-        transition-timing-function: linear;
-      }
-      #profiles-screen .profiles-screen__profiles .swiper-slide {
-        width: 400px;
-      }
-      #profiles-screen .profiles-screen__profiles .swiper-slide img {
+      #profiles-screen .profiles-screen__profiles .profile-option img {
         display: block;
-        width: 400px;
-        height: 400px;
+        width: 100%;
+        aspect-ratio: 1;
         object-fit: cover;
         object-position: top;
         border: 4px solid transparent;
         cursor: pointer;
       }
-      #profiles-screen .profiles-screen__profiles .swiper-slide.selected img {
+      #profiles-screen .profiles-screen__profiles .profile-option.selected img {
         border-color: #FC5B1C;
       }
       #profiles-screen .profiles-screen__decoration {
@@ -416,33 +411,17 @@
           <h3 class="mono">Deepfake profiles</h3>
           <h1>Who do you want to be?</h1>
           <div class="profiles-screen__profiles">
-            <div class="swiper">
-              <div class="swiper-wrapper">
-                <div class="swiper-slide" data-face="gigachad">
-                  <img src="/public/gigachad.png" alt="Gigachad" />
-                </div>
-                <div class="swiper-slide" data-face="baby">
-                  <img src="/public/baby.png" alt="Baby" />
-                </div>
-                <div class="swiper-slide" data-face="woman">
-                  <img src="/public/woman.png" alt="Woman" />
-                </div>
-                <div class="swiper-slide" data-face="viking">
-                  <img src="/public/viking.png" alt="Viking" />
-                </div>
-                <div class="swiper-slide" data-face="gigachad">
-                  <img src="/public/gigachad.png" alt="Gigachad" />
-                </div>
-                <div class="swiper-slide" data-face="baby">
-                  <img src="/public/baby.png" alt="Baby" />
-                </div>
-                <div class="swiper-slide" data-face="woman">
-                  <img src="/public/woman.png" alt="Woman" />
-                </div>
-                <div class="swiper-slide" data-face="viking">
-                  <img src="/public/viking.png" alt="Viking" />
-                </div>
-              </div>
+            <div class="profile-option" data-face="gigachad">
+              <img src="/public/gigachad.png" alt="Gigachad" />
+            </div>
+            <div class="profile-option" data-face="baby">
+              <img src="/public/baby.png" alt="Baby" />
+            </div>
+            <div class="profile-option" data-face="woman">
+              <img src="/public/woman.png" alt="Woman" />
+            </div>
+            <div class="profile-option" data-face="viking">
+              <img src="/public/viking.png" alt="Viking" />
             </div>
           </div>
           <div class="profiles-screen__buttons">
@@ -503,7 +482,6 @@
       </div>
     </article>
     <canvas id="stage-canvas"></canvas>
-    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
     <script>
       const API_BASE = 'http://127.0.0.1:8000';
@@ -514,42 +492,16 @@
       const textDetected = document.getElementById('text-detected');
       const textThreat = document.getElementById('text-threat');
 
-      let profilesSwiper = null;
-
       document.addEventListener('contextmenu', event => event.preventDefault());
 
-      function initProfilesSwiper() {
-        if (profilesSwiper) {
-          profilesSwiper.update();
-          return;
-        }
-        profilesSwiper = new Swiper('.profiles-screen__profiles .swiper', {
-          loop: true,
-          slidesPerView: 'auto',
-          centeredSlides: true,
-          spaceBetween: 16,
-          autoplay: {
-            delay: 0,
-            disableOnInteraction: false,
-            pauseOnMouseEnter: false,
-          },
-          speed: 4000,
-          allowTouchMove: false,
-          grabCursor: false,
-        });
-        profilesSwiper.on('click', () => {
-          const slide = profilesSwiper.clickedSlide;
-          if (slide && slide.dataset.face) {
-            selectFace(slide.dataset.face);
-          }
-        });
-        syncSelection();
-      }
+      document.querySelector('.profiles-screen__profiles').addEventListener('click', event => {
+        const option = event.target.closest('.profile-option');
+        if (option) selectFace(option.dataset.face);
+      });
 
       attractScreen.addEventListener('click', () => {
         profilesScreen.style.display = 'block';
         selectFace('gigachad');
-        initProfilesSwiper();
         attractScreen.style.transform = 'translateY(-100%)';
         attractScreen.addEventListener('transitionend', () => {
           attractScreen.style.display = 'none';
@@ -560,7 +512,7 @@
 
       function syncSelection() {
         profilesScreen
-          .querySelectorAll('.profiles-screen__profiles .swiper-slide')
+          .querySelectorAll('.profiles-screen__profiles .profile-option')
           .forEach(slide => {
             slide.classList.toggle('selected', slide.dataset.face === selectedFace);
           });
@@ -1188,7 +1140,6 @@
         videoScreen.style.display = 'none';
         profilesScreen.style.display = 'block';
         selectFace('gigachad');
-        initProfilesSwiper();
       });
 
       doneButton.addEventListener('click', () => {
