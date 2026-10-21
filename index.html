@@ -576,10 +576,6 @@
 
       document.addEventListener('contextmenu', event => event.preventDefault());
 
-      document.ondblclick = function (e) {
-          e.preventDefault();
-      }
-
       document.querySelector('.profiles-screen__profiles').addEventListener('click', event => {
         const option = event.target.closest('.profile-option');
         if (option) selectFace(option.dataset.face);
