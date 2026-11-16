@@ -4,6 +4,7 @@
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
       <title>Deepfake Photo Booth Test</title>
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11.1.14/swiper-bundle.min.css" />
   </head>
   <body>
     <style>
@@ -88,10 +89,10 @@
         bottom: 100px;
         left: 50%;
         transform: translateX(-50%);
-        width: min(100%, 56.25vh);
-        padding: 40px;
+        padding: 32px;
         color: #FFFFFF;
         text-align: center;
+        font-size: 48px;
       }
       #final-screen {
         display: none;
@@ -149,17 +150,16 @@
         width: 100%;
       }
       #profiles-screen .profiles-screen__profiles {
-        margin-top: 20px;
+        margin: 20px -40px 0; /* bleed past the panel padding so more of the carousel shows */
       }
-      #profiles-screen .profiles-screen__profiles {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 16px;
+      #profiles-screen .profiles-screen__profiles .profile-option {
+        width: 400px;
+        height: 400px;
       }
       #profiles-screen .profiles-screen__profiles .profile-option img {
         display: block;
-        width: 100%;
-        aspect-ratio: 1;
+        width: 400px;
+        height: 400px;
         object-fit: cover;
         object-position: top;
         border: 4px solid transparent;
@@ -342,14 +342,22 @@
       #download-screen .download-screen__card {
         padding: 40px;
         flex: 1;
+        min-height: 0;
         display: flex;
         flex-direction: column;
         gap: 40px
       }
       #video-download {
-        max-width: 300px;
+        flex: 1 1 0;
+        min-height: 0;
         width: 100%;
+        object-fit: contain;
         margin: 0 auto;
+      }
+      #download-screen.is-keyboard-open #video-download {
+        flex: none;
+        max-width: 300px;
+        height: auto;
       }
       #download-screen .download-screen__card__text {
         padding: 40px;
@@ -485,18 +493,41 @@
         <div class="profiles-screen__bottom patterned-background">
           <h3 class="mono">Deepfake profiles</h3>
           <h1>Who do you want to be?</h1>
-          <div class="profiles-screen__profiles">
-            <div class="profile-option" data-face="gigachad">
-              <img src="/public/gigachad.png" alt="Gigachad" />
-            </div>
-            <div class="profile-option" data-face="baby">
-              <img src="/public/baby.png" alt="Baby" />
-            </div>
-            <div class="profile-option" data-face="woman">
-              <img src="/public/woman.png" alt="Woman" />
-            </div>
-            <div class="profile-option" data-face="viking">
-              <img src="/public/viking.png" alt="Viking" />
+          <div class="profiles-screen__profiles swiper">
+            <div class="swiper-wrapper">
+              <div class="swiper-slide profile-option" data-face="gigachad">
+                <img src="/public/gigachad.png" alt="Gigachad" />
+              </div>
+              <div class="swiper-slide profile-option" data-face="baby">
+                <img src="/public/baby.png" alt="Baby" />
+              </div>
+              <div class="swiper-slide profile-option" data-face="woman">
+                <img src="/public/woman.png" alt="Woman" />
+              </div>
+              <div class="swiper-slide profile-option" data-face="viking">
+                <img src="/public/viking.png" alt="Viking" />
+              </div>
+              <div class="swiper-slide profile-option" data-face="grandpa">
+                <img src="/public/grandpa.png" alt="Grandpa" />
+              </div>
+              <div class="swiper-slide profile-option" data-face="hipster">
+                <img src="/public/hipster.png" alt="Hipster" />
+              </div>
+              <div class="swiper-slide profile-option" data-face="punk">
+                <img src="/public/punk.png" alt="Punk" />
+              </div>
+              <div class="swiper-slide profile-option" data-face="sea-captain">
+                <img src="/public/sea-captain.png" alt="Sea captain" />
+              </div>
+              <div class="swiper-slide profile-option" data-face="drill-sergeant">
+                <img src="/public/drill-sergeant.png" alt="Drill sergeant" />
+              </div>
+              <div class="swiper-slide profile-option" data-face="pe-teacher">
+                <img src="/public/pe-teacher.png" alt="PE teacher" />
+              </div>
+              <div class="swiper-slide profile-option" data-face="aerobics-instructor">
+                <img src="/public/aerobics-instructor.png" alt="Aerobics instructor" />
+              </div>
             </div>
           </div>
           <div class="profiles-screen__buttons">
@@ -565,6 +596,7 @@
     </article>
     <canvas id="stage-canvas"></canvas>
     <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11.1.14/swiper-bundle.min.js"></script>
     <script>
       const API_BASE = 'http://127.0.0.1:8000';
       const SHARE_API_BASE = 'http://127.0.0.1:8787';
@@ -576,14 +608,109 @@
 
       document.addEventListener('contextmenu', event => event.preventDefault());
 
-      document.querySelector('.profiles-screen__profiles').addEventListener('click', event => {
-        const option = event.target.closest('.profile-option');
-        if (option) selectFace(option.dataset.face);
-      });
+      // Continuous marquee driven by requestAnimationFrame rather than Swiper's autoplay.
+      // Autoplay chains slide transitions via `transitionend`, and after a free-mode flick
+      // Swiper can be left flagged as "animating" with no transitionend ever arriving, which
+      // stalls autoplay permanently. Moving the translate ourselves avoids that and gives a
+      // truly constant speed.
+      // The carousel is created lazily on first show, because the profiles screen starts
+      // hidden and Swiper can't measure slides inside a display:none element.
+      // Touching it stops the marquee so the user can drag/flick freely; it resumes after
+      // CAROUSEL_RESUME_AFTER_MS without any interaction.
+      const CAROUSEL_SPEED_PX_PER_SEC = 100;
+      const CAROUSEL_RESUME_AFTER_MS = 1000;
+      let profileCarousel;
+      let carouselResumeTimer;
+      let marqueeRaf = null;
+      let marqueeLastTs = 0;
+
+      function marqueeStep(ts) {
+        const swiper = profileCarousel;
+        const dt = marqueeLastTs ? Math.min(ts - marqueeLastTs, 50) : 0; // cap so a dropped frame doesn't jump
+        marqueeLastTs = ts;
+        const prevIndex = swiper.activeIndex;
+        swiper.setTranslate(swiper.translate - CAROUSEL_SPEED_PX_PER_SEC * dt / 1000);
+        swiper.updateActiveIndex();
+        swiper.updateSlidesClasses();
+        if (swiper.activeIndex !== prevIndex) {
+          // Move slides from the front to the back. byMousewheel keeps the exact pixel
+          // offset; without it loopFix snaps to the nearest slide, causing a visible jump.
+          swiper.loopFix({ direction: 'next', byMousewheel: true });
+        }
+        marqueeRaf = requestAnimationFrame(marqueeStep);
+      }
+
+      function startMarquee() {
+        if (!profileCarousel || marqueeRaf) return;
+        clearTimeout(carouselResumeTimer);
+        // Freeze any in-flight flick at its current on-screen position and clear the
+        // animating flag so nothing is left waiting on a transitionend.
+        const current = profileCarousel.getTranslate();
+        profileCarousel.setTransition(0);
+        profileCarousel.animating = false;
+        profileCarousel.setTranslate(current);
+        marqueeLastTs = 0;
+        marqueeRaf = requestAnimationFrame(marqueeStep);
+      }
+
+      function stopMarquee() {
+        if (marqueeRaf) cancelAnimationFrame(marqueeRaf);
+        marqueeRaf = null;
+      }
+
+      function scheduleCarouselResume() {
+        clearTimeout(carouselResumeTimer);
+        carouselResumeTimer = setTimeout(startMarquee, CAROUSEL_RESUME_AFTER_MS);
+      }
+
+      function startProfileCarousel() {
+        clearTimeout(carouselResumeTimer);
+        if (!profileCarousel) {
+          profileCarousel = new Swiper('.profiles-screen__profiles', {
+            slidesPerView: 'auto', // slides are fixed at 400px; at most 3 fit in the panel
+            spaceBetween: 16,
+            loop: true,
+            loopAdditionalSlides: 3,
+            grabCursor: true,
+            freeMode: { enabled: true, momentum: true }, // flicks glide naturally instead of snapping
+            on: {
+              touchStart: () => {
+                clearTimeout(carouselResumeTimer);
+                stopMarquee();
+              },
+              touchEnd: scheduleCarouselResume,
+              // A flick keeps gliding after the finger lifts; restart the countdown when it settles.
+              transitionEnd: () => {
+                if (!marqueeRaf) scheduleCarouselResume();
+              },
+              // Swiper's click ignores drags, so only a real tap selects a face.
+              click: swiper => {
+                const option = swiper.clickedSlide;
+                if (option) selectFace(option.dataset.face);
+              },
+            },
+          });
+        } else {
+          // Coming back from another screen: re-measure before resuming.
+          profileCarousel.update();
+        }
+        startMarquee();
+      }
+
+      function showProfiles() {
+        profilesScreen.style.display = 'block';
+        startProfileCarousel();
+        selectFace('gigachad');
+      }
+
+      function hideProfiles() {
+        profilesScreen.style.display = 'none';
+        clearTimeout(carouselResumeTimer);
+        stopMarquee();
+      }
 
       attractScreen.addEventListener('click', () => {
-        profilesScreen.style.display = 'block';
-        selectFace('gigachad');
+        showProfiles();
         attractScreen.style.transform = 'translateY(-100%)';
         attractScreen.addEventListener('transitionend', () => {
           attractScreen.style.display = 'none';
@@ -630,7 +757,10 @@
         FADE_OUT_MS: 2000,        // step 4: dither + deepfake fade out together
         POST_FADE_OUT_HOLD_MS: 2000, // step 4b: brief pause on the clean feed after fade out
         END_SLIDE_MS: 800,        // step 5: end screen slides up (recorded)
-        END_SCREEN_HOLD_MS: 3000, // step 5: hold end screen (still recording)
+        END_TEXT_DELAY_MS: 500,   // step 5: when the text starts fading in, from the start of the slide (card is ~95% up)
+        END_TEXT_FADE_MS: 600,    // step 5: title + subtitle fade/rise in as the end screen finishes sliding up
+        END_TEXT_RISE_PX: 40,     // step 5: how far (CSS px) the text rises while fading in
+        END_SCREEN_HOLD_MS: 3000, // step 5: hold end screen after the text is in (still recording)
         DOWNLOAD_SLIDE_MS: 800,   // step 6: download screen slides up (not recorded)
 
         SLIDE_EASING: t => 1 - Math.pow(1 - t, 3), // ease-out, mirrors the profiles slide feel
@@ -652,12 +782,25 @@
         NOTCH_PATH: new Path2D('M10 4.99805L5.00098 -0.000976562L0 5L4.99902 9.99902H0V-0.000976562H10V4.99805ZM10 9.99902H5.00293L10 5.00098V9.99902Z'),
       };
 
+      // Status lines ("Checking for deepfake" -> "Deepfake detected" -> "Threat uncovered") are drawn
+      // on the canvas so their transitions are recorded. New lines fade in on top; older lines slide
+      // down a slot and fade to the inactive (secondary) color.
+      const STATUS = {
+        TRANSITION_MS: 600,
+        EASING: t => 1 - Math.pow(1 - t, 3),
+      };
+
       // ===================== Elements =====================
       const webcam = document.getElementById('webcam');
       const videoScreen = document.getElementById('video-screen');
       const cameraBox = videoScreen.querySelector('.video-screen__camera');
       const statusVideo = videoScreen.querySelector('.video-screen__status video');
+      const statusText = videoScreen.querySelector('.video-screen__status__text');
       const endScreen = document.getElementById('end-screen');
+      const endTitle = endScreen.querySelector('.end-screen__content h1');
+      const endSubtitle = endScreen.querySelector('.end-screen__content h2');
+      const endLogo = endScreen.querySelector('.end-screen__logo');
+      const endBackground = endScreen.querySelector('.end-screen__background');
       const downloadScreen = document.getElementById('download-screen');
       const videoDownload = document.getElementById('video-download');
       const tryAnotherButton = downloadScreen.querySelector('.download-screen__buttons .button-tertiary');
@@ -798,7 +941,7 @@
       function rasterize(node) {
         return htmlToImage.toCanvas(node, {
           pixelRatio: ANIM.RENDER_SCALE,
-          filter: n => n !== webcam,
+          filter: n => n !== webcam && n !== statusText,
           backgroundColor: null,
         });
       }
@@ -808,9 +951,75 @@
       }
       function prepareEndChrome() {
         endScreen.style.display = 'block';
-        endChromePromise = rasterize(endScreen)
+        endTextIn = 0;
+        // The title and subtitle fade in on the canvas, so they're left out of the main chrome and
+        // get their own full-screen layer (everything else hidden, no background) so glyphs that
+        // overflow their line boxes, like descenders, aren't clipped.
+        // Snapshots run sequentially: html-to-image reads styles asynchronously, so toggling
+        // visibility while one is in flight would leak into it.
+        const textEls = [endTitle, endSubtitle];
+        const otherEls = [endLogo, endBackground];
+        const setHidden = (els, hidden) => els.forEach(el => { el.style.visibility = hidden ? 'hidden' : ''; });
+        setHidden(otherEls, true);
+        endChromePromise = htmlToImage.toCanvas(endScreen, {
+          pixelRatio: ANIM.RENDER_SCALE,
+          backgroundColor: null,
+          style: { backgroundColor: 'transparent' },
+        })
+          .then(c => { endTextChrome = c; })
+          .catch(err => console.error('Failed to rasterize end-screen text', err))
+          .then(() => {
+            setHidden(otherEls, false);
+            setHidden(textEls, true);
+            return rasterize(endScreen);
+          })
           .then(c => { endChrome = c; })
-          .catch(err => console.error('Failed to rasterize end-screen', err));
+          .catch(err => console.error('Failed to rasterize end-screen', err))
+          .finally(() => setHidden([...textEls, ...otherEls], false));
+      }
+
+      // ===================== End-screen text fade-up =====================
+      let endTextChrome = null; // full end-screen-sized layer containing only the title + subtitle
+      let endTextIn = 0;        // 0 = hidden, 1 = fully in
+
+      function drawEndText(ctx, offsetY, W, H) {
+        if (!endTextChrome || endTextIn <= 0) return;
+        const t = ANIM.SLIDE_EASING(endTextIn);
+        const scale = W / endScreen.offsetWidth;
+        const rise = (1 - t) * ANIM.END_TEXT_RISE_PX * scale;
+        ctx.save();
+        ctx.globalAlpha = t;
+        ctx.drawImage(endTextChrome, 0, offsetY + rise, W, H);
+        ctx.restore();
+      }
+
+      // ===================== Canvas text =====================
+      // Per-character positions (CSS px relative to `base`) for an element holding a single text
+      // node, so the text can be redrawn on the canvas exactly where the DOM lays it out.
+      function measureText(el, base) {
+        const node = el.firstChild;
+        if (!node || node.nodeType !== Node.TEXT_NODE) return null;
+        const text = node.textContent;
+        const cs = getComputedStyle(el);
+        const font = `${cs.fontWeight} ${parseFloat(cs.fontSize)}px ${cs.fontFamily}`;
+
+        // Canvas metrics give the baseline offset within a line box.
+        const probe = document.createElement('canvas').getContext('2d');
+        probe.font = font;
+        const ascent = probe.measureText('H').fontBoundingBoxAscent;
+
+        const range = document.createRange();
+        const chars = [];
+        let lastTop = 0;
+        for (let i = 0; i < text.length; i++) {
+          range.setStart(node, i);
+          range.setEnd(node, i + 1);
+          const r = range.getBoundingClientRect();
+          const top = r.width > 0 || r.height > 0 ? r.top - base.top : lastTop;
+          chars.push({ ch: text[i], x: r.left - base.left, baseline: top + ascent });
+          lastTop = top;
+        }
+        return { chars, font };
       }
 
       // ===================== Layout measurement =====================
@@ -861,10 +1070,12 @@
           drawCover(stageCtx, statusVideo, statusVideo.videoWidth, statusVideo.videoHeight,
             statusRect.x, statusRect.y, statusRect.w, statusRect.h);
         }
+        drawStatus(stageCtx, W);
 
         if (endChrome && endSlide > 0) {
           const offset = H * (1 - ANIM.SLIDE_EASING(endSlide));
           stageCtx.drawImage(endChrome, 0, offset, W, H);
+          drawEndText(stageCtx, offset, W, H);
         }
       }
       function renderLoop() {
@@ -876,8 +1087,14 @@
       // ===================== Status text =====================
       const statusEls = { checking: textChecking, detected: textDetected, threat: textThreat };
       let activeStatus = null;
+      let statusOrder = [];  // keys in activation order (newest last)
+      let statusAnim = {};   // key -> { from, to, start }, each of from/to = { rank, inactive, alpha }
+      let statusLayout = null;
+
       function resetStatus() {
         activeStatus = null;
+        statusOrder = [];
+        statusAnim = {};
         Object.values(statusEls).forEach(el => {
           el.style.display = 'none';
           el.classList.remove('inactive');
@@ -890,6 +1107,90 @@
         el.style.display = 'block';
         el.classList.remove('inactive');
         activeStatus = key;
+
+        // Canvas transition: every line animates from where it is now to its new slot/color.
+        if (statusOrder.includes(key)) return;
+        const now = performance.now();
+        const first = statusOrder.length === 0;
+        statusOrder.push(key);
+        statusOrder.forEach((k, i) => {
+          const target = { rank: statusOrder.length - 1 - i, inactive: k === key ? 0 : 1, alpha: 1 };
+          const from = k === key ? { rank: 0, inactive: 0, alpha: first ? 1 : 0 } : statusValue(k, now);
+          statusAnim[k] = { from, to: target, start: now };
+        });
+      }
+      function statusValue(key, now) {
+        const a = statusAnim[key];
+        const t = STATUS.EASING(Math.min(Math.max((now - a.start) / STATUS.TRANSITION_MS, 0), 1));
+        const lerp = (x, y) => x + (y - x) * t;
+        return {
+          rank: lerp(a.from.rank, a.to.rank),
+          inactive: lerp(a.from.inactive, a.to.inactive),
+          alpha: lerp(a.from.alpha, a.to.alpha),
+        };
+      }
+
+      function parseRgb(color) {
+        const m = color.match(/[\d.]+/g) || [0, 0, 0];
+        return m.slice(0, 3).map(Number);
+      }
+      // Measures every status line as it'd sit stacked, plus the active/inactive colors, then
+      // restores the DOM. Lines are measured relative to their own box so they can move between slots.
+      function measureStatus() {
+        const els = Object.values(statusEls);
+        const saved = els.map(el => ({ display: el.style.display, inactive: el.classList.contains('inactive') }));
+        els.forEach(el => { el.style.display = 'block'; el.classList.remove('inactive'); });
+
+        const base = videoScreen.getBoundingClientRect();
+        const box = statusText.getBoundingClientRect();
+        const lines = {};
+        let slotHeight = 0;
+        for (const [key, el] of Object.entries(statusEls)) {
+          const r = el.getBoundingClientRect();
+          const layout = measureText(el, r);
+          if (!layout) continue;
+          lines[key] = { ...layout, x: r.left - base.left };
+          slotHeight = Math.max(slotHeight, r.height);
+        }
+        const activeColor = parseRgb(getComputedStyle(textChecking).color);
+        textChecking.classList.add('inactive');
+        const inactiveColor = parseRgb(getComputedStyle(textChecking).color);
+
+        els.forEach((el, i) => {
+          el.style.display = saved[i].display;
+          el.classList.toggle('inactive', saved[i].inactive);
+        });
+        return {
+          lines,
+          top: box.top - base.top,
+          step: slotHeight + parseFloat(getComputedStyle(statusText).rowGap || 0),
+          activeColor,
+          inactiveColor,
+          width: base.width,
+        };
+      }
+
+      function drawStatus(ctx, W) {
+        const layout = statusLayout;
+        if (!layout) return;
+        const now = performance.now();
+        const scale = W / layout.width;
+        ctx.save();
+        ctx.scale(scale, scale);
+        ctx.textBaseline = 'alphabetic';
+        for (const key of statusOrder) {
+          const line = layout.lines[key];
+          if (!line || !statusAnim[key]) continue;
+          const v = statusValue(key, now);
+          if (v.alpha <= 0) continue;
+          const rgb = layout.activeColor.map((c, i) => Math.round(c + (layout.inactiveColor[i] - c) * v.inactive));
+          ctx.globalAlpha = v.alpha;
+          ctx.fillStyle = `rgb(${rgb.join(',')})`;
+          ctx.font = line.font;
+          const y = layout.top + v.rank * layout.step;
+          for (const c of line.chars) ctx.fillText(c.ch, line.x + c.x, y + c.baseline);
+        }
+        ctx.restore();
       }
 
       // ===================== Recording =====================
@@ -984,11 +1285,13 @@
 
       function closeEmailKeyboard() {
         emailKeyboard.classList.remove('is-open');
+        downloadScreen.classList.remove('is-keyboard-open');
         emailKeyboardShift = false;
       }
 
       shareEmail.addEventListener('click', () => {
         emailKeyboard.classList.add('is-open');
+        downloadScreen.classList.add('is-keyboard-open');
         renderEmailKeyboard();
       });
 
@@ -1155,6 +1458,9 @@
         videoChrome = null;
         endChrome = null;
         endChromePromise = null;
+        statusLayout = null;
+        endTextChrome = null;
+        endTextIn = 0;
         revealThresholds = null;
         revealCols = 0;
         revealRows = 0;
@@ -1191,6 +1497,7 @@
 
         resetStatus();
         activateStatus('checking');
+        statusLayout = measureStatus();
 
         // Rasterize the chrome before revealing the canvas so the hand-off is seamless.
         await refreshVideoChrome();
@@ -1209,8 +1516,6 @@
 
         // Step 2: dither reveals in.
         activateStatus('detected');
-        await refreshVideoChrome();
-        if (cancelled()) return;
         await tween(ANIM.DITHER_FADE_IN_MS, t => { ditherProgress = t; }, runId);
         if (cancelled()) return;
 
@@ -1221,8 +1526,6 @@
 
         // Step 4: dither + deepfake fade out together.
         activateStatus('threat');
-        await refreshVideoChrome();
-        if (cancelled()) return;
         await tween(ANIM.FADE_OUT_MS, t => {
           ditherProgress = 1 - t;
           setOpacityThrottled(ANIM.DEEPFAKE_ON_OPACITY * (1 - t));
@@ -1238,9 +1541,14 @@
         // Step 5: end screen slides up (still recording).
         if (endChromePromise) await endChromePromise;
         if (cancelled()) return;
-        await tween(ANIM.END_SLIDE_MS, t => { endSlide = t; }, runId);
+        // Title + subtitle start fading/rising in as the card nears the top of its slide.
+        await Promise.all([
+          tween(ANIM.END_SLIDE_MS, t => { endSlide = t; }, runId),
+          wait(ANIM.END_TEXT_DELAY_MS).then(() => tween(ANIM.END_TEXT_FADE_MS, t => { endTextIn = t; }, runId)),
+        ]);
         if (cancelled()) return;
         endSlide = 1;
+        endTextIn = 1;
         await wait(ANIM.END_SCREEN_HOLD_MS);
         if (cancelled()) return;
 
@@ -1254,7 +1562,7 @@
 
       // ===================== Profiles -> video-screen hand-off =====================
       backButton.addEventListener('click', () => {
-        profilesScreen.style.display = 'none';
+        hideProfiles();
         attractScreen.style.display = 'block';
         requestAnimationFrame(() => {
           attractScreen.style.transform = 'translateY(0)';
@@ -1268,7 +1576,7 @@
         videoScreen.style.display = 'block';
         cameraBox.appendChild(webcam);
         webcam.style.zIndex = '10';
-        profilesScreen.style.display = 'none';
+        hideProfiles();
 
         const camRect = cameraBox.getBoundingClientRect();
         webcam.style.transition = 'none';
@@ -1326,15 +1634,14 @@
         resetBooth();
         restoreWebcamToProfiles();
         videoScreen.style.display = 'none';
-        profilesScreen.style.display = 'block';
-        selectFace('gigachad');
+        showProfiles();
       });
 
       function returnToAttract() {
         resetBooth();
         restoreWebcamToProfiles();
         videoScreen.style.display = 'none';
-        profilesScreen.style.display = 'none';
+        hideProfiles();
         attractScreen.style.display = 'block';
         requestAnimationFrame(() => {
           attractScreen.style.transform = 'translateY(0)';

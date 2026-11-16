@@ -24,7 +24,7 @@ const {
   PORT = '8787',
   ALLOWED_ORIGIN = 'http://localhost:3000',
   BLOB_READ_WRITE_TOKEN,
-  EMAIL_LAMBDA_URL = 'https://o6prusgwzk2k7axom67ihzhrgm0hyuge.lambda-url.us-east-1.on.aws/',
+  EMAIL_LAMBDA_URL,
   EMAIL_LAMBDA_TOKEN,
 } = process.env;
 
@@ -54,6 +54,7 @@ async function logUpload({ id, email = '', status, error = '' }) {
 // ---- Startup config check (warn only, so the server still boots on placeholders) ----
 const REQUIRED_ENV = [
   'BLOB_READ_WRITE_TOKEN',
+  'EMAIL_LAMBDA_URL',
   'EMAIL_LAMBDA_TOKEN',
 ];
 const missingEnv = REQUIRED_ENV.filter(key => !process.env[key]);
