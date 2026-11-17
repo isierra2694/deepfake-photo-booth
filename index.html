@@ -508,25 +508,19 @@
                 <img src="/public/viking.png" alt="Viking" />
               </div>
               <div class="swiper-slide profile-option" data-face="grandpa">
-                <img src="/public/grandpa.png" alt="Grandpa" />
+                <img src="/public/grandpa.jpg" alt="Grandpa" />
               </div>
               <div class="swiper-slide profile-option" data-face="hipster">
-                <img src="/public/hipster.png" alt="Hipster" />
+                <img src="/public/hipster.jpg" alt="Hipster" />
               </div>
               <div class="swiper-slide profile-option" data-face="punk">
-                <img src="/public/punk.png" alt="Punk" />
+                <img src="/public/punk.jpg" alt="Punk" />
               </div>
               <div class="swiper-slide profile-option" data-face="sea-captain">
-                <img src="/public/sea-captain.png" alt="Sea captain" />
+                <img src="/public/sea-captain.jpg" alt="Sea captain" />
               </div>
               <div class="swiper-slide profile-option" data-face="drill-sergeant">
-                <img src="/public/drill-sergeant.png" alt="Drill sergeant" />
-              </div>
-              <div class="swiper-slide profile-option" data-face="pe-teacher">
-                <img src="/public/pe-teacher.png" alt="PE teacher" />
-              </div>
-              <div class="swiper-slide profile-option" data-face="aerobics-instructor">
-                <img src="/public/aerobics-instructor.png" alt="Aerobics instructor" />
+                <img src="/public/drill-sergeant.jpg" alt="Drill sergeant" />
               </div>
             </div>
           </div>
@@ -615,12 +609,10 @@
       // truly constant speed.
       // The carousel is created lazily on first show, because the profiles screen starts
       // hidden and Swiper can't measure slides inside a display:none element.
-      // Touching it stops the marquee so the user can drag/flick freely; it resumes after
-      // CAROUSEL_RESUME_AFTER_MS without any interaction.
+      // Touching it stops the marquee for good so the user can drag/flick freely; it only
+      // starts again the next time the profiles screen is shown.
       const CAROUSEL_SPEED_PX_PER_SEC = 100;
-      const CAROUSEL_RESUME_AFTER_MS = 1000;
       let profileCarousel;
-      let carouselResumeTimer;
       let marqueeRaf = null;
       let marqueeLastTs = 0;
 
@@ -642,7 +634,6 @@
 
       function startMarquee() {
         if (!profileCarousel || marqueeRaf) return;
-        clearTimeout(carouselResumeTimer);
         // Freeze any in-flight flick at its current on-screen position and clear the
         // animating flag so nothing is left waiting on a transitionend.
         const current = profileCarousel.getTranslate();
@@ -658,13 +649,7 @@
         marqueeRaf = null;
       }
 
-      function scheduleCarouselResume() {
-        clearTimeout(carouselResumeTimer);
-        carouselResumeTimer = setTimeout(startMarquee, CAROUSEL_RESUME_AFTER_MS);
-      }
-
       function startProfileCarousel() {
-        clearTimeout(carouselResumeTimer);
         if (!profileCarousel) {
           profileCarousel = new Swiper('.profiles-screen__profiles', {
             slidesPerView: 'auto', // slides are fixed at 400px; at most 3 fit in the panel
@@ -674,15 +659,7 @@
             grabCursor: true,
             freeMode: { enabled: true, momentum: true }, // flicks glide naturally instead of snapping
             on: {
-              touchStart: () => {
-                clearTimeout(carouselResumeTimer);
-                stopMarquee();
-              },
-              touchEnd: scheduleCarouselResume,
-              // A flick keeps gliding after the finger lifts; restart the countdown when it settles.
-              transitionEnd: () => {
-                if (!marqueeRaf) scheduleCarouselResume();
-              },
+              touchStart: stopMarquee,
               // Swiper's click ignores drags, so only a real tap selects a face.
               click: swiper => {
                 const option = swiper.clickedSlide;
@@ -705,7 +682,6 @@
 
       function hideProfiles() {
         profilesScreen.style.display = 'none';
-        clearTimeout(carouselResumeTimer);
         stopMarquee();
       }
 
