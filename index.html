@@ -709,7 +709,11 @@
         syncSelection();
 
         try {
-          const imageUrl = `/public/${selectedFace}.png`;
+          // Use the slide's own image so the extension (.png / .jpg) always matches the file on disk.
+          const faceImg = profilesScreen.querySelector(
+            `.profile-option[data-face="${CSS.escape(selectedFace)}"] img`
+          );
+          const imageUrl = faceImg ? faceImg.getAttribute('src') : `/public/${selectedFace}.png`;
           const imageBlob = await (await fetch(imageUrl)).blob();
           await fetch(`${API_BASE}/api/source`, {
             method: "POST",
